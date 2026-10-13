@@ -22,6 +22,16 @@
 - Docker 构建及容器验收通过：两个 YAML 来源与同一 URI 节点合并为一个，保留三个来源记录，预览脱敏且不修改全局来源。服务与临时容器已清理，不 push。
 - 倍率、重命名执行、分组与规则生成尚未接入，完整下载仍返回 501。
 
+## 外部规则导入调查与用户优先级
+
+- 用户新要求：查看 ACL4SSR 与 sub.v1.mk 如何导入外部规则，并确保自定义规则 > 外部规则。已写入 agent 与 README；规则执行尚未实现，不能把此记录视为已完成生成器。
+- 实际查看 ACL4SSR 线上 js/693.4b28d9e1.js 与 sub.v1.mk 的 js/98.3e32b138.js：两者生成转换地址时均拼接 config=encodeURIComponent(remoteConfig)。ACL4SSR 提供 ACL4SSR_Online.ini 等模板；sub.v1.mk 当前默认 ACL4SSR_Online_Full_NoAuto.ini，并列出更多模板来源。
+- 对照 subconverter README-cn.md 与 ACL4SSR_Online.ini：INI 的 ruleset=目标策略,远程地址引用 .list，也支持 []GEOIP 等内联规则及 []FINAL；模板同时包含自定义分组和 overwrite_original_rules=true。这些是 subconverter 外部模板约定，不等于 Mihomo 原生规则格式。
+- 生成器顺序明确为自定义层（含 AI 固定出口）、外部层、最终兜底。各层保留顺序；外部模板的覆盖开关不得删除自定义层。外部 MATCH/FINAL 必须提取为兜底，避免提前结束匹配，自定义兜底优先。
+- 导入时需映射外部策略组名称到实际输出目标，检查不存在的引用；不能把外部同名组用于覆盖 AI 固定出口或倍率分组。外部组声明不自动覆盖用户组与基础配置，不执行外部脚本。
+- 后续优先实现规则导入与排序预览，验证自定义 AI 域名在外部微软/Google 等重叠分类之前；同时保留下一阶段倍率/重命名的原任务。
+- 依据：subconverter 官方外部配置说明、ACL4SSR 官方 INI/.list、两个页面的当前部署脚本及 Mihomo 官方规则优先级文档。
+
 ## 多行协议链接解析与页面确认
 
 - 新增 uri.go，标准库解析 ss、tuic、vless、vmess、trojan、hysteria2/hy2、anytls；保留支持的凭据、IPv6、TLS、Reality、WS/gRPC/HTTP/H2 参数与常见 SS 插件设置，不加入新依赖。

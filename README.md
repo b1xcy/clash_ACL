@@ -105,6 +105,14 @@ API 请求为 JSON：urls 数组、aggregate 布尔值和 direct_links 多行文
 
 以上设置尚未接入最终配置生成器；生成器实现后按保存的设置处理节点和路由。
 
+## 外部规则导入与优先级（待实现）
+
+已检查 ACL4SSR 与 sub.v1.mk 的线上页面脚本。两者均将「远程配置」地址作为 config 参数交给 subconverter；模板 INI 中的 ruleset 指定策略组与外部规则地址，后端读取规则列表并按顺序生成。[subconverter 外部配置说明](https://github.com/tindy2013/subconverter/blob/master/README-cn.md#外部配置)、[ACL4SSR 在线模板](https://github.com/ACL4SSR/ACL4SSR/blob/master/Clash/config/ACL4SSR_Online.ini)。
+
+本项目按用户要求生成：**自定义规则（包含 AI 固定出口） → 外部导入规则 → 最终兜底**。Mihomo 按从上到下的顺序匹配，这使自定义规则优先于外部同域名或通用分类规则。[Mihomo 规则优先级](https://wiki.metacubex.one/config/rules/?h=rule+providers)。
+
+后续提供远程配置 URL、自定义规则编辑与外部策略目标映射。外部模板的覆盖开关不能删除自定义规则，也不能覆盖 AI 绑定或本项目的分组。外部策略必须绑定到有效目标；外部 MATCH/FINAL 单独归入最后兜底，自定义兜底优先。当前规则导入及顺序生成尚未实现。
+
 ## 要解决的问题
 
 多个订阅往往各自带有分组和分流规则，直接合并完整配置容易产生重复节点、组名冲突和规则覆盖。客户端扩展脚本还会把自建节点、倍率分组与服务策略分散在不同位置，维护成本较高。
