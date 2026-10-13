@@ -4,13 +4,13 @@
 
 **当前状态：已实现基础服务、订阅转换表单、来源管理、远程 YAML 读取、后台刷新、磁盘缓存、节点预览与转换设置保存。** 协议链接导入、聚合、倍率分类、AI 分流生成仍待实现，目前不能生成完整 Mihomo 订阅。
 
-打开服务根地址（本地为 `http://127.0.0.1:8080/`），使用类似 ACL4SSR 的订阅转换表单：输入多行订阅、选择 Mihomo 客户端、设置聚合，并在进阶模式编辑重命名、AI 自建出口和代理组配置。页面不展示开发进度。静态 HTML 内嵌在 Go 程序中，随 Docker 镜像交付，不依赖 CDN 或单独前端服务。令牌只保留在当前页面内存，不写入浏览器存储。
+打开服务根地址（本地为 `http://127.0.0.1:8080/`），使用类似 ACL4SSR 的订阅转换表单：输入多行订阅、选择 Mihomo 客户端、设置聚合，并在进阶模式编辑重命名、AI 自建出口和代理组配置。页面不展示开发进度。静态 HTML 内嵌在 Go 程序中，随 Docker 镜像交付，不依赖 CDN 或单独前端服务。打开即可使用，不需要登录或输入访问令牌。
 
-当前可以保存和读取订阅、预览节点，并保存进阶设置；生成订阅、复制结果与导入客户端暂时禁用，不生成无效下载链接。保存转换设置不代表已经执行重命名、分组或固定出口分流。
+当前可以通过请求参数读取订阅、预览节点，并保存进阶设置；生成订阅、复制结果与导入客户端暂时禁用，不生成无效下载链接。保存转换设置不代表已经执行重命名、分组或固定出口分流。
 
 ## 启动基础服务
 
-从项目根目录构建并启动。两个令牌都可以省略，服务会自动生成：
+从项目根目录构建并启动，无需配置令牌：
 
 ```bash
 docker build -t clash-acl:local .
@@ -22,44 +22,46 @@ curl http://127.0.0.1:8080/healthz
 docker logs clash-acl
 ```
 
-Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/config.json`；未设置的令牌使用安全随机数生成，并保存在 `/data/tokens.json`，容器重建后复用。新建令牌文件在 Linux 上的权限为 `0600`。上面的端口仅绑定本机，远程管理可通过 HTTPS 反向代理访问。
+Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/config.json`；数据卷保存转换设置与订阅缓存。服务不生成、读取或打印访问令牌。
 
-环境变量为空时，启动日志直接打印对应有效令牌，例如 `CLASH_ACL_ADMIN_TOKEN=...`；重启复用保存的随机令牌时也打印。显式设置的环境变量令牌不会打印。
-
-需要指定令牌时，可创建本地 `.env` 文件，并在 `docker run` 中添加 `--env-file .env`。环境变量优先于保存的随机令牌；两个有效令牌不能相同。`.env` 已从 Git 和 Docker 构建上下文排除。
-
-本地开发需要 Go 1.25.5 或更新版本，执行 `go run .` 即可；默认监听 `127.0.0.1:8080`，配置保存于 `data/config.json`，自动生成的令牌保存于 `data/tokens.json`。
+本地开发需要 Go 1.25.5 或更新版本，执行 `go run .` 即可；默认监听 `127.0.0.1:8080`，配置保存于 `data/config.json`。
 
 | 环境变量 | 用途 | 默认值 |
 | --- | --- | --- |
-| `CLASH_ACL_ADMIN_TOKEN` | 配置管理令牌 | 空值时复用保存值或随机生成，并打印至启动日志 |
-| `CLASH_ACL_DOWNLOAD_TOKEN` | 独立下载令牌 | 空值时复用保存值或随机生成，并打印至启动日志；不能与管理令牌相同 |
 | `CLASH_ACL_LISTEN_ADDR` | HTTP 监听地址 | 本地 `127.0.0.1:8080`；镜像内 `0.0.0.0:8080` |
-| `CLASH_ACL_DATA_DIR` | 私有配置目录 | 本地 `data`；镜像内 `/data` |
+| `CLASH_ACL_DATA_DIR` | 配置与缓存目录 | 本地 `data`；镜像内 `/data` |
 
 ## 已实现 API
 
-| 方法与路径 | 认证 | 行为 |
-| --- | --- | --- |
-| `GET /healthz` | 无 | 返回 `ok`，检查服务存活 |
-| `GET /` | 无 | 返回内嵌订阅转换表单 HTML |
-| `GET /api/status` | 管理令牌 | 返回接口能力、配置数量及不含 URL 的来源摘要 |
-| `GET /api/config` | 管理令牌 | 返回当前完整配置 |
-| `PUT /api/config` | 管理令牌 | 用 JSON 请求体整体替换并保存配置 |
-| `GET /api/sources` | 管理令牌 | 返回可编辑的来源设置，包含订阅 URL |
-| `PUT /api/sources` | 管理令牌 | 用 JSON 来源数组替换来源列表，保留其他配置 |
-| `GET /api/options` | 管理令牌 | 返回重命名、AI、代理组设置及自建节点名称 |
-| `PUT /api/options` | 管理令牌 | 保存转换设置，保留来源、自建节点和基础配置 |
-| `POST /api/sources/refresh` | 管理令牌 | 启动启用来源的后台刷新，返回 HTTP 202 |
-| `GET /api/sources/{id}/preview` | 管理令牌 | 从最近成功缓存返回节点名称与协议类型 |
-| `POST /api/yaml/preview` | 管理令牌 | 解析请求体中的 YAML，仅预览，不保存 |
-| `GET /download` | 下载令牌 | 当前返回 HTTP 501，生成器尚未实现 |
+| 方法与路径 | 行为 |
+| --- | --- |
+| `GET /healthz` | 返回 `ok`，检查服务存活 |
+| `GET /` | 返回内嵌订阅转换表单 HTML |
+| `GET /api/subscriptions?url=...` | 按请求地址读取缓存状态与节点预览；refresh=true 启动后台刷新 |
+| `GET /api/status` | 返回接口能力、配置数量及不含 URL 的来源摘要 |
+| `GET /api/config` | 返回当前完整配置 |
+| `PUT /api/config` | 用 JSON 请求体整体替换并保存配置 |
+| `GET /api/sources` | 返回可编辑的来源设置，包含订阅 URL |
+| `PUT /api/sources` | 用 JSON 来源数组替换来源列表，保留其他配置 |
+| `GET /api/options` | 返回重命名、AI、代理组设置及自建节点名称 |
+| `PUT /api/options` | 保存转换设置，保留来源、自建节点和基础配置 |
+| `POST /api/sources/refresh` | 启动启用来源的后台刷新，返回 HTTP 202 |
+| `GET /api/sources/{id}/preview` | 从最近成功缓存返回节点名称与协议类型 |
+| `POST /api/yaml/preview` | 解析请求体中的 YAML，仅预览，不保存 |
+| `GET /download?url=...` | 接受订阅地址参数；生成器尚未实现，有效请求返回 HTTP 501 |
 
-认证使用 `Authorization: Bearer <令牌>`，目前不支持通过 URL 参数传令牌。配置读写接口供管理使用，返回的完整配置可能包含节点凭据；响应不缓存，日志和校验错误不打印来源 URL 或节点秘密。按项目约定，环境变量为空时的随机访问令牌在启动日志中直接打印。
+所有接口均无需认证。订阅地址通过重复的 url 查询参数传入，地址中的 &、? 等字符由调用端 URL 编码；aggregate=false 只读取第一条，默认启用全部。读取不会修改服务器上保存的来源列表，缓存仍保留在数据目录。
 
 ```bash
-curl -H 'Authorization: Bearer <管理令牌>' http://127.0.0.1:8080/api/config
+curl --get http://127.0.0.1:8080/api/subscriptions \
+  --data-urlencode 'url=https://example.com/sub?token=example&format=clash' \
+  --data-urlencode 'url=https://example.net/clash.yaml' \
+  --data-urlencode 'aggregate=true' \
+  --data-urlencode 'refresh=true'
 ```
+
+接口先返回来源状态，使用相同 url 参数且省略 refresh 轮询，读取成功后响应的 previews 提供节点名称与类型。参数错误返回 400。/download 沿用同一组地址参数，但暂未实现配置生成。
+配置读写接口保留，用于可选的服务器默认设置；前端读取订阅不依赖先保存配置。JSON 响应不缓存，日志和校验错误不打印完整来源地址或节点秘密。
 
 配置结构包含 `fetch_concurrency`（默认 2）、`sources`、`self_hosted_nodes`、`rename_rules`、`groups`、`rules`、`ai` 与 `base`。自建节点使用 `{ "id": "fixed", "proxy": { ... } }`，`proxy` 保存完整 Mihomo 节点字段；`ai.node_id` 只能引用自建节点 ID。当前只保存这些策略，尚不执行生成。
 
@@ -67,12 +69,12 @@ PUT 是整体替换操作，更新前应先读取完整配置。非法 JSON、�
 
 ## 来源读取与缓存
 
-在「订阅链接」中每行输入一个地址，点击「保存订阅」或「保存并读取」。聚合关闭时只启用第一行订阅。「管理来源」可以单独编辑名称与启用状态；展开已保存来源后可查看节点和缓存。刷新任务在后台执行，页面自动更新来源状态；停用来源不会发起请求。`/api/status` 返回各来源的节点数、上次刷新时间、错误和缓存状态，不返回订阅 URL。
+在「订阅链接」中每行输入一个地址，点击「读取订阅」。聚合关闭时只读取第一行；展开本次来源后可查看节点和缓存。刷新任务在后台执行，页面自动更新来源状态；停用来源不会发起请求。`/api/subscriptions` 返回本次来源的节点数、上次刷新时间、错误、缓存状态与节点预览。
 
 支持含 `proxies` 的 Clash/Mihomo 配置及 proxy-provider YAML。只提取节点，保留嵌套协议参数与扩展字段；来源自带分组和规则不合并。输入缺少节点、节点缺少名称或类型、多文档 YAML 等情况会明确报错。
 
 - 来源缓存位于数据目录的 `cache/`，使用来源 ID 与 URL 的摘要作为文件名。修改 URL 后不会复用旧 URL 的缓存。
-- 默认并发为 2，可通过 `fetch_concurrency` 调整。同一来源的重叠刷新共用一个任务。
+- 参数读取接口的并发上限为 2；已保存来源的刷新可通过 `fetch_concurrency` 调整。同一来源的重叠刷新共用一个任务。
 - HTTP 请求超时为 20 秒，单个订阅上限为 8 MiB。
 - 刷新失败时保留最近成功节点，显示 `using_cache: true` 和错误。没有成功缓存时明确显示失败。
 - 页面与预览 API 只显示节点名称和协议，不公开服务器、密码或认证参数。完整节点参数保存在私有缓存中，供后续生成器使用。

@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 const testSubscription = `proxies:
@@ -145,29 +147,19 @@ func TestRefreshConcurrencyAndDisabledSources(t *testing.T) {
 	}
 }
 
-func TestYAMLPreviewRequiresAdminAndDoesNotExposeParameters(t *testing.T) {
+func TestYAMLPreviewWithoutCredentials(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	if err := writeConfig(path, defaultConfig()); err != nil {
 		t.Fatal(err)
 	}
-	handler := newHandler(path, "admin-test", "download-test")
-	for _, token := range []string{"download-test", "admin-test"} {
-		request := httptest.NewRequest(http.MethodPost, "/api/yaml/preview", strings.NewReader(testSubscription))
-		request.Header.Set("Authorization", "Bearer "+token)
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		if token == "download-test" {
-			if response.Code != http.StatusUnauthorized {
-				t.Fatal("download credential can parse management input")
-			}
-			continue
-		}
-		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Example") || strings.Contains(response.Body.String(), "synthetic-test-secret") || strings.Contains(response.Body.String(), "example.invalid") || strings.Contains(response.Body.String(), "reality-opts") {
-			t.Fatal("preview missing nodes or exposing private protocol fields")
-		}
+	handler := newHandler(path)
+	request := httptest.NewRequest(http.MethodPost, "/api/yaml/preview", strings.NewReader(testSubscription))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Example") || strings.Contains(response.Body.String(), "synthetic-test-secret") || strings.Contains(response.Body.String(), "example.invalid") || strings.Contains(response.Body.String(), "reality-opts") {
+		t.Fatal("preview missing nodes or exposing protocol fields")
 	}
 }
-
 func TestSourceOnlyUpdatePreservesOtherConfiguration(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	config := defaultConfig()
@@ -176,9 +168,9 @@ func TestSourceOnlyUpdatePreservesOtherConfiguration(t *testing.T) {
 	if err := writeConfig(path, config); err != nil {
 		t.Fatal(err)
 	}
-	handler := newHandler(path, "admin-test", "download-test")
+	handler := newHandler(path)
 	request := httptest.NewRequest(http.MethodPut, "/api/sources", strings.NewReader(`[{"id":"new","name":"New source","url":"https://example.invalid/sub","enabled":true}]`))
-	request.Header.Set("Authorization", "Bearer admin-test")
+
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
@@ -189,10 +181,55 @@ func TestSourceOnlyUpdatePreservesOtherConfiguration(t *testing.T) {
 		t.Fatal("source update changed unrelated configuration or numeric precision")
 	}
 	request = httptest.NewRequest(http.MethodGet, "/api/sources", nil)
-	request.Header.Set("Authorization", "Bearer admin-test")
+
 	response = httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "private-config-secret") {
 		t.Fatal("source editor should not receive self-hosted credentials")
+	}
+}
+
+func TestSubscriptionsFromQueryDoNotChangeStoredSources(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(testSubscription)) }))
+	defer upstream.Close()
+	path := filepath.Join(t.TempDir(), "config.json")
+	config := defaultConfig()
+	config.Sources = []Source{{ID: "saved", URL: "https://example.invalid/saved", Enabled: true}}
+	if err := writeConfig(path, config); err != nil {
+		t.Fatal(err)
+	}
+	handler := newHandler(path)
+	query := url.Values{"url": {upstream.URL + "?token=test&a=1", upstream.URL + "/second"}, "aggregate": {"false"}, "refresh": {"true"}}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/subscriptions?"+query.Encode(), nil))
+	if response.Code != http.StatusOK {
+		t.Fatal(response.Body.String())
+	}
+	query.Del("refresh")
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		response = httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/subscriptions?"+query.Encode(), nil))
+		if strings.Contains(response.Body.String(), `"node_count":1`) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("request subscription never loaded")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !strings.Contains(response.Body.String(), `"enabled":1`) || !strings.Contains(response.Body.String(), "Example") || strings.Contains(response.Body.String(), "synthetic-test-secret") {
+		t.Fatal("wrong request selection or preview")
+	}
+	saved, err := readConfig(path)
+	if err != nil || len(saved.Sources) != 1 || saved.Sources[0].ID != "saved" {
+		t.Fatal("query subscriptions modified saved configuration")
+	}
+	for _, endpoint := range []string{"/api/subscriptions", "/api/subscriptions?url=file:///invalid", "/api/subscriptions?url=https://example.invalid&refresh=invalid", "/download"} {
+		response = httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, endpoint, nil))
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("invalid parameters accepted: %s", endpoint)
+		}
 	}
 }

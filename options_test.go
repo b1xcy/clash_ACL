@@ -17,10 +17,10 @@ func TestConversionOptionsPreserveSourcesAndPrivateNodeFields(t *testing.T) {
 	if err := writeConfig(path, config); err != nil {
 		t.Fatal(err)
 	}
-	handler := newHandler(path, "admin-test", "download-test")
+	handler := newHandler(path)
 	body := `{"rename_rules":[{"match":"HK","replacement":"香港","regex":false}],"ai":{"node_id":"fixed","domains":["openai.com"]},"groups_json":"[{\"name\":\"节点选择\",\"type\":\"select\",\"extension\":9007199254740993}]"}`
 	request := httptest.NewRequest(http.MethodPut, "/api/options", strings.NewReader(body))
-	request.Header.Set("Authorization", "Bearer admin-test")
+
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
@@ -31,7 +31,7 @@ func TestConversionOptionsPreserveSourcesAndPrivateNodeFields(t *testing.T) {
 		t.Fatal("options update changed sources or lost protocol/group fields")
 	}
 	request = httptest.NewRequest(http.MethodGet, "/api/options", nil)
-	request.Header.Set("Authorization", "Bearer admin-test")
+
 	response = httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "private-node-secret") || strings.Contains(response.Body.String(), "private-source") || !strings.Contains(response.Body.String(), "9007199254740993") {
@@ -46,14 +46,14 @@ func TestInvalidConversionOptionsDoNotChangeConfiguration(t *testing.T) {
 	if err := writeConfig(path, config); err != nil {
 		t.Fatal(err)
 	}
-	handler := newHandler(path, "admin-test", "download-test")
+	handler := newHandler(path)
 	for _, body := range []string{
 		`null`, `{} {}`, `{"rename_rules":[{"match":"[","regex":true}]}`,
 		`{"groups_json":"null"}`, `{"groups_json":"[{}]"}`, `{"groups_json":"[] []"}`,
 		`{"ai":{"node_id":"airport"}}`,
 	} {
 		request := httptest.NewRequest(http.MethodPut, "/api/options", strings.NewReader(body))
-		request.Header.Set("Authorization", "Bearer admin-test")
+
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		if response.Code != http.StatusBadRequest {

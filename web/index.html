@@ -4,18 +4,17 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>clash_ACL · 在线订阅转换</title>
 <style>
-:root{color-scheme:light;--blue:#3478f6;--text:#263449;--muted:#7b8799;--line:#e5eaf1;--paper:#f5f7fb}*{box-sizing:border-box}body{margin:0;color:var(--text);background:var(--paper);font:14px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.48;cursor:not-allowed}input,textarea,select,button{outline-offset:3px}header{background:#fff;border-bottom:1px solid var(--line)}.topbar{max-width:1040px;margin:auto;padding:18px 24px;display:flex;align-items:center;justify-content:space-between}.brand{font-size:19px;font-weight:750;letter-spacing:-.6px}.brand span{color:var(--blue)}.topbar a{color:var(--muted);text-decoration:none;font-size:13px}main{max-width:1040px;margin:30px auto 50px;padding:0 24px}.heading{text-align:center;margin:30px 0 25px}h1{font-size:28px;font-weight:650;margin:0 0 7px;letter-spacing:.5px}p{margin:0;color:var(--muted)}.panel{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 22px #233e6405}.auth{padding:17px 23px;display:flex;gap:18px;align-items:center;margin-bottom:18px}.auth-copy{white-space:nowrap}.auth form{display:flex;gap:8px;flex:1}.auth input{flex:1;min-width:0}.badge{font-size:12px;color:var(--muted);background:#f1f3f7;padding:3px 9px;border-radius:5px;white-space:nowrap}.badge.ready{background:#eaf6ef;color:#38845e}.badge.cached{background:#fff3e0;color:#a7752d}.converter{padding:0 30px 27px}.tabs{display:flex;gap:27px;border-bottom:1px solid var(--line);margin-bottom:25px}.tab{border:0;background:none;padding:18px 4px 13px;color:var(--muted);border-bottom:2px solid transparent}.tab.active{color:var(--blue);border-color:var(--blue)}.row{display:grid;grid-template-columns:122px 1fr;gap:18px;margin-bottom:22px}.row>label,.row>.label{padding-top:9px;color:#455268}.field{width:100%;border:1px solid #dce2ea;border-radius:6px;background:#fff;padding:9px 12px;color:var(--text);min-width:0}.field:focus{border-color:#83affb;outline:2px solid #edf3ff}.field:disabled,.field[readonly]{background:#f7f9fc}textarea{resize:vertical;min-height:118px;line-height:1.8}textarea.code{font-family:ui-monospace,monospace;font-size:12px;min-height:140px}.hint{font-size:12px;color:var(--muted);margin-top:7px}.hint a{color:var(--blue)}.primary,.secondary{border-radius:6px;padding:8px 15px;white-space:nowrap}.primary{border:1px solid var(--blue);background:var(--blue);color:#fff}.secondary{border:1px solid #dce2ea;background:#fff;color:#58657a}.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.input-actions{margin-top:12px}.inline-check{display:inline-flex;align-items:center;gap:6px;color:#59677a}.inline-check input{accent-color:var(--blue)}.field-small{max-width:350px}.notice{padding:11px 14px;background:#f0f5ff;color:#607da5;border-radius:6px;font-size:12px}.divider{border-top:1px solid var(--line);margin:25px 0}.output-actions{padding-left:140px;margin:20px 0}.output-actions .primary{padding:10px 29px}.output-box{display:flex;gap:9px}.output-box input{flex:1}.message{min-height:22px;margin:0 0 16px;font-size:13px;text-align:center;color:var(--muted)}.message.success{color:#38845e}.message.error,.source-error,.error-note{color:#b34b46}.source-error{font-size:12px}.source-summary{margin-top:13px}.source-summary summary{cursor:pointer;color:var(--muted);font-size:12px}.source-list{margin-top:10px;border:1px solid var(--line);border-radius:7px;padding:0 14px}.source-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.source-row:last-child{border-bottom:0}.source-row strong{font-size:13px;font-weight:550}.muted{font-size:12px;color:var(--muted)}.rate-info{display:flex;gap:8px;flex-wrap:wrap}.rate-info span{background:#f4f7fc;padding:5px 10px;border-radius:5px;font-size:12px}.rename-row{display:grid;grid-template-columns:1fr 1fr 85px 45px;gap:8px;margin-bottom:9px}.rename-row .secondary{padding:7px}.options-note{font-size:12px;color:var(--muted)}footer{text-align:center;color:#9ba5b2;font-size:12px;margin-top:24px}dialog{border:1px solid var(--line);border-radius:10px;padding:25px;width:min(780px,calc(100% - 28px));max-height:85vh;color:var(--text);box-shadow:0 25px 80px #233e6430}dialog::backdrop{background:#1b2a4566}.dialog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}h2{font-size:18px;margin:0;font-weight:600}.source-editor{border:1px solid var(--line);padding:15px;border-radius:7px;margin:12px 0}.source-editor label{display:block;margin:9px 0 4px;font-size:12px;color:var(--muted)}.editor-top{display:flex;justify-content:space-between;align-items:center}.editor-top label{margin:0;color:var(--text)}.editor-top input{margin-right:7px}.dialog-actions{display:flex;justify-content:flex-end;margin-top:16px}.node-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.node-row span:last-child{color:var(--muted)}.error-note{min-height:22px;font-size:12px;margin-top:12px}@media(max-width:700px){main{padding:0 14px;margin-top:20px}.topbar{padding:15px 18px}.heading{margin:25px 0 20px}h1{font-size:24px}.auth{display:block;padding:15px}.auth form{margin-top:10px;flex-wrap:wrap}.auth form input{flex-basis:100%}.converter{padding:0 17px 22px}.row{grid-template-columns:1fr;gap:6px;margin-bottom:19px}.row>label,.row>.label{padding-top:0}.output-actions{padding-left:0}.output-box{flex-wrap:wrap}.output-box input{flex-basis:100%}.source-row{align-items:flex-start}.source-row>div:first-child{min-width:0;overflow-wrap:anywhere}.rename-row{grid-template-columns:1fr 1fr}.rename-row select{width:100%}.rename-row button{justify-self:start}}
+:root{color-scheme:light;--blue:#3478f6;--text:#263449;--muted:#7b8799;--line:#e5eaf1;--paper:#f5f7fb}*{box-sizing:border-box}body{margin:0;color:var(--text);background:var(--paper);font:14px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.48;cursor:not-allowed}input,textarea,select,button{outline-offset:3px}header{background:#fff;border-bottom:1px solid var(--line)}.topbar{max-width:1040px;margin:auto;padding:18px 24px;display:flex;align-items:center;justify-content:space-between}.brand{font-size:19px;font-weight:750;letter-spacing:-.6px}.brand span{color:var(--blue)}.topbar a{color:var(--muted);text-decoration:none;font-size:13px}main{max-width:1040px;margin:30px auto 50px;padding:0 24px}.heading{text-align:center;margin:30px 0 25px}h1{font-size:28px;font-weight:650;margin:0 0 7px;letter-spacing:.5px}p{margin:0;color:var(--muted)}.panel{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 22px #233e6405}.auth input{flex:1;min-width:0}.badge{font-size:12px;color:var(--muted);background:#f1f3f7;padding:3px 9px;border-radius:5px;white-space:nowrap}.badge.ready{background:#eaf6ef;color:#38845e}.badge.cached{background:#fff3e0;color:#a7752d}.converter{padding:0 30px 27px}.tabs{display:flex;gap:27px;border-bottom:1px solid var(--line);margin-bottom:25px}.tab{border:0;background:none;padding:18px 4px 13px;color:var(--muted);border-bottom:2px solid transparent}.tab.active{color:var(--blue);border-color:var(--blue)}.row{display:grid;grid-template-columns:122px 1fr;gap:18px;margin-bottom:22px}.row>label,.row>.label{padding-top:9px;color:#455268}.field{width:100%;border:1px solid #dce2ea;border-radius:6px;background:#fff;padding:9px 12px;color:var(--text);min-width:0}.field:focus{border-color:#83affb;outline:2px solid #edf3ff}.field:disabled,.field[readonly]{background:#f7f9fc}textarea{resize:vertical;min-height:118px;line-height:1.8}textarea.code{font-family:ui-monospace,monospace;font-size:12px;min-height:140px}.hint{font-size:12px;color:var(--muted);margin-top:7px}.hint a{color:var(--blue)}.primary,.secondary{border-radius:6px;padding:8px 15px;white-space:nowrap}.primary{border:1px solid var(--blue);background:var(--blue);color:#fff}.secondary{border:1px solid #dce2ea;background:#fff;color:#58657a}.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.input-actions{margin-top:12px}.inline-check{display:inline-flex;align-items:center;gap:6px;color:#59677a}.inline-check input{accent-color:var(--blue)}.field-small{max-width:350px}.notice{padding:11px 14px;background:#f0f5ff;color:#607da5;border-radius:6px;font-size:12px}.divider{border-top:1px solid var(--line);margin:25px 0}.output-actions{padding-left:140px;margin:20px 0}.output-actions .primary{padding:10px 29px}.output-box{display:flex;gap:9px}.output-box input{flex:1}.message{min-height:22px;margin:0 0 16px;font-size:13px;text-align:center;color:var(--muted)}.message.success{color:#38845e}.message.error,.source-error,.error-note{color:#b34b46}.source-error{font-size:12px}.source-summary{margin-top:13px}.source-summary summary{cursor:pointer;color:var(--muted);font-size:12px}.source-list{margin-top:10px;border:1px solid var(--line);border-radius:7px;padding:0 14px}.source-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.source-row:last-child{border-bottom:0}.source-row strong{font-size:13px;font-weight:550}.muted{font-size:12px;color:var(--muted)}.rate-info{display:flex;gap:8px;flex-wrap:wrap}.rate-info span{background:#f4f7fc;padding:5px 10px;border-radius:5px;font-size:12px}.rename-row{display:grid;grid-template-columns:1fr 1fr 85px 45px;gap:8px;margin-bottom:9px}.rename-row .secondary{padding:7px}.options-note{font-size:12px;color:var(--muted)}footer{text-align:center;color:#9ba5b2;font-size:12px;margin-top:24px}dialog{border:1px solid var(--line);border-radius:10px;padding:25px;width:min(780px,calc(100% - 28px));max-height:85vh;color:var(--text);box-shadow:0 25px 80px #233e6430}dialog::backdrop{background:#1b2a4566}.dialog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}h2{font-size:18px;margin:0;font-weight:600}.source-editor{border:1px solid var(--line);padding:15px;border-radius:7px;margin:12px 0}.source-editor label{display:block;margin:9px 0 4px;font-size:12px;color:var(--muted)}.editor-top{display:flex;justify-content:space-between;align-items:center}.editor-top label{margin:0;color:var(--text)}.editor-top input{margin-right:7px}.dialog-actions{display:flex;justify-content:flex-end;margin-top:16px}.node-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.node-row span:last-child{color:var(--muted)}.error-note{min-height:22px;font-size:12px;margin-top:12px}@media(max-width:700px){main{padding:0 14px;margin-top:20px}.topbar{padding:15px 18px}.heading{margin:25px 0 20px}h1{font-size:24px}.converter{padding:0 17px 22px}.row{grid-template-columns:1fr;gap:6px;margin-bottom:19px}.row>label,.row>.label{padding-top:0}.output-actions{padding-left:0}.output-box{flex-wrap:wrap}.output-box input{flex-basis:100%}.source-row{align-items:flex-start}.source-row>div:first-child{min-width:0;overflow-wrap:anywhere}.rename-row{grid-template-columns:1fr 1fr}.rename-row select{width:100%}.rename-row button{justify-self:start}}
 </style>
 </head>
 <body>
 <header><div class="topbar"><div class="brand">clash<span>_ACL</span></div><a href="https://github.com/b1xcy/clash_ACL" target="_blank" rel="noreferrer">GitHub ↗</a></div></header>
 <main>
 <div class="heading"><h1>在线订阅转换</h1><p>合并订阅、整理节点、统一规则。</p></div>
-<section class="panel auth"><div class="auth-copy">自建服务 <span class="badge" id="connectionState">未连接</span></div><form id="connectForm"><input class="field" id="token" type="password" placeholder="管理令牌（来自服务启动日志）" autocomplete="off" aria-label="管理令牌" required><button class="primary" type="submit">连接</button><button class="secondary" type="button" id="disconnect">断开</button></form></section>
 <div class="message" id="message" role="status" aria-live="polite"></div>
 <section class="panel converter">
 <div class="tabs" role="tablist"><button class="tab active" id="basicTab" role="tab" aria-selected="true">基础模式</button><button class="tab" id="advancedTab" role="tab" aria-selected="false">进阶模式</button></div>
-<div class="row"><label for="subscriptionInput">订阅链接</label><div><textarea class="field" id="subscriptionInput" rows="5" spellcheck="false" placeholder="https://example.com/subscribe?token=...&#10;https://example.net/clash.yaml"></textarea><div class="hint">每行一个 Clash / Mihomo YAML 订阅地址。关闭聚合时只使用第一行。</div><div class="actions input-actions"><label class="inline-check"><input type="checkbox" id="aggregate" checked>聚合多个订阅</label><button class="secondary" id="saveSubscriptions" disabled>保存订阅</button><button class="secondary" id="refreshSources" disabled>保存并读取</button><button class="secondary" id="editSources" disabled>管理来源</button></div><details class="source-summary"><summary>已保存 <span id="countSources">0</span> 个来源 · 启用 <span id="countEnabled">0</span> 个</summary><div class="source-list" id="sourceList"><p class="muted">连接后读取来源。</p></div><div class="actions input-actions"><button class="secondary" id="reload" disabled>更新来源状态</button><button class="secondary" id="yamlPreview" disabled>本地 YAML 预览</button></div></details></div></div>
+<div class="row"><label for="subscriptionInput">订阅链接</label><div><textarea class="field" id="subscriptionInput" rows="5" spellcheck="false" placeholder="https://example.com/subscribe?token=...&#10;https://example.net/clash.yaml"></textarea><div class="hint">每行一个 Clash / Mihomo YAML 订阅地址。关闭聚合时只使用第一行。</div><div class="actions input-actions"><label class="inline-check"><input type="checkbox" id="aggregate" checked>聚合多个订阅</label><button class="secondary" id="refreshSources">读取订阅</button></div><details class="source-summary"><summary>本次 <span id="countSources">0</span> 个来源 · 启用 <span id="countEnabled">0</span> 个</summary><div class="source-list" id="sourceList"><p class="muted">输入订阅地址后点击读取订阅。</p></div><div class="actions input-actions"><button class="secondary" id="reload" disabled>更新来源状态</button><button class="secondary" id="yamlPreview">本地 YAML 预览</button></div></details></div></div>
 <div class="row"><label for="target">客户端</label><div><select class="field field-small" id="target"><option value="mihomo">Mihomo / Clash.Meta</option></select></div></div>
 <div id="advancedOptions" hidden>
 <div class="divider"></div>
@@ -27,31 +26,29 @@
 <div class="row"><div></div><div class="actions"><button class="secondary" id="saveOptions" disabled>保存转换设置</button><span class="options-note">保存设置不会修改订阅来源或自建节点。</span></div></div>
 </div>
 <div class="divider"></div>
-<div class="row"><div class="label">生成订阅</div><div class="notice">订阅配置生成暂不可用。目前可以保存订阅和转换设置、读取来源并预览节点。</div></div>
+<div class="row"><div class="label">生成订阅</div><div class="notice">订阅配置生成暂不可用。目前可以通过参数读取订阅并预览节点、保存转换设置。</div></div>
 <div class="output-actions"><button class="primary" id="generate" disabled>生成订阅</button></div>
 <div class="row"><label for="convertedUrl">订阅地址</label><div class="output-box"><input class="field" id="convertedUrl" readonly placeholder="生成后显示订阅地址"><button class="secondary" disabled>复制</button><button class="secondary" disabled>导入客户端</button></div></div>
 </section>
 <footer>clash_ACL · 自建 Mihomo 订阅转换</footer>
 </main>
-<dialog id="sourceEditor"><div class="dialog-head"><h2>管理订阅来源</h2><button class="secondary" id="closeEditor">关闭</button></div><p>启用开关决定哪些订阅参与读取。</p><form id="sourceForm"><div id="sourceFields"></div><button type="button" class="secondary" id="addSource">＋ 添加来源</button><div class="error-note" id="editorMessage" role="status"></div><div class="dialog-actions"><button class="primary" type="submit" id="saveSources">保存来源</button></div></form></dialog>
 <dialog id="previewDialog"><div class="dialog-head"><h2 id="previewTitle">节点预览</h2><button class="secondary" id="closePreview">关闭</button></div><p>展示节点名称和协议类型，认证参数不公开。</p><div id="yamlFormArea" hidden><label for="yamlText">粘贴含 proxies 的 YAML 配置</label><textarea class="field" id="yamlText" spellcheck="false"></textarea><button class="primary" id="parseYaml">解析预览</button></div><div class="error-note" id="previewMessage" role="status"></div><div id="nodePreview"></div></dialog>
 <script>
 
-let adminToken = '';
+let requestQuery = '';
+let nodePreviews = {};
 let statusTimer;
-let editingSources = [];
 const byId = id => document.getElementById(id);
 function message(text, type = '') { byId('message').textContent = text; byId('message').className = 'message ' + type; }
 async function api(path, options = {}) {
-  const response = await fetch(path, {...options, headers: {...options.headers, Authorization: 'Bearer ' + adminToken}, cache: 'no-store'});
+  const response = await fetch(path, {...options, cache: 'no-store'});
   const data = await response.json();
-  if (!response.ok) throw new Error(response.status === 401 ? '管理令牌不正确，请重新输入。' : data.error || '请求失败，请稍后重试。');
+  if (!response.ok) throw new Error(data.error || '请求失败，请稍后重试。');
   return data;
 }
 function renderStatus(data) {
   byId('countSources').textContent = data.counts.sources;
   byId('countEnabled').textContent = data.counts.enabled;
-  byId('countSelf').textContent = data.counts.self_hosted;
   byId('sourceList').replaceChildren();
   if (!data.sources.length) {
     const empty = document.createElement('p'); empty.className = 'muted'; empty.textContent = '尚未保存订阅来源。'; byId('sourceList').append(empty);
@@ -66,53 +63,35 @@ function renderStatus(data) {
     const preview = document.createElement('button'); preview.className = 'secondary'; preview.textContent = '预览节点'; preview.disabled = !source.node_count; preview.addEventListener('click', () => openSourcePreview(source));
     actions.append(badge, preview); row.append(text, actions); byId('sourceList').append(row);
   });
-  byId('connectionState').textContent = '已连接'; byId('connectionState').className = 'badge ready';
-  ['reload','editSources','yamlPreview','saveSubscriptions'].forEach(id => byId(id).disabled = false);
+  nodePreviews = data.previews || {};
+  byId('reload').disabled = false;
   const refreshing = data.sources.some(source => source.state === 'refreshing');
   byId('refreshSources').disabled = refreshing;
-  byId('refreshSources').textContent = refreshing ? '正在读取…' : '保存并读取';
+  byId('refreshSources').textContent = refreshing ? '正在读取…' : '读取订阅';
   if (refreshing) statusTimer = setTimeout(loadStatus, 1500);
 }
+
 async function loadStatus() {
   clearTimeout(statusTimer);
+  if (!requestQuery) return;
   byId('reload').disabled = true;
-  try { renderStatus(await api('/api/status')); message('服务已连接，订阅来源状态已更新。', 'success'); }
-  catch (error) { message(error.message, 'error'); byId('connectionState').textContent = '连接失败'; byId('connectionState').className = 'badge'; ['editSources','yamlPreview','refreshSources','saveSubscriptions','saveOptions','addRename'].forEach(id => byId(id).disabled = true); }
-  finally { byId('reload').disabled = !adminToken; }
-}
-byId('connectForm').addEventListener('submit', async event => { event.preventDefault(); adminToken = byId('token').value.trim(); await loadStatus(); if (byId('connectionState').textContent === '已连接') { try { await Promise.all([loadSubscriptionInput(), loadConversionOptions()]); } catch (error) { message(error.message, 'error'); } } });
-byId('reload').addEventListener('click', loadStatus);
-byId('disconnect').addEventListener('click', () => location.reload());
-function renderSourceEditor() {
-  byId('sourceFields').replaceChildren();
-  editingSources.forEach((source, index) => {
-    const card = document.createElement('div'); card.className = 'source-editor';
-    const top = document.createElement('div'); top.className = 'editor-top';
-    const enabledLabel = document.createElement('label'); const enabled = document.createElement('input'); enabled.type = 'checkbox'; enabled.checked = source.enabled; enabled.addEventListener('change', () => source.enabled = enabled.checked); enabledLabel.append(enabled, '启用来源');
-    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'secondary'; remove.textContent = '移除'; remove.addEventListener('click', () => { editingSources.splice(index, 1); renderSourceEditor(); }); top.append(enabledLabel, remove); card.append(top);
-    [['name','来源名称','text'],['url','订阅 URL','url']].forEach(([key, title, type]) => {
-      const label = document.createElement('label'); label.textContent = title; label.htmlFor = 'source-' + index + '-' + key;
-      const input = document.createElement('input'); input.className = 'field'; input.id = label.htmlFor; input.type = type; input.value = source[key] || ''; input.required = key === 'url'; input.autocomplete = 'off'; input.addEventListener('input', () => source[key] = input.value.trim()); card.append(label, input);
-    });
-    byId('sourceFields').append(card);
-  });
-}
-byId('editSources').addEventListener('click', async () => {
-  try { const data = await api('/api/sources'); editingSources = structuredClone(data.sources || []); renderSourceEditor(); byId('editorMessage').textContent = ''; byId('sourceEditor').showModal(); }
-  catch (error) { message(error.message, 'error'); }
-});
-byId('closeEditor').addEventListener('click', () => byId('sourceEditor').close());
-byId('addSource').addEventListener('click', () => { editingSources.push({id: crypto.randomUUID?.() || Date.now().toString(36) + '-' + Math.random().toString(36).slice(2), name: '', url: '', enabled: true}); renderSourceEditor(); });
-byId('sourceForm').addEventListener('submit', async event => {
-  event.preventDefault(); byId('saveSources').disabled = true;
-  try { await api('/api/sources', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(editingSources)}); byId('sourceEditor').close(); await loadStatus(); await loadSubscriptionInput(); }
-  catch (error) { byId('editorMessage').textContent = error.message; }
-  finally { byId('saveSources').disabled = false; }
-});
-byId('refreshSources').addEventListener('click', async () => {
-  byId('refreshSources').disabled = true;
-  try { await saveSubscriptionInput(); await api('/api/sources/refresh', {method:'POST'}); await loadStatus(); }
+  try { renderStatus(await api('/api/subscriptions?' + requestQuery)); }
   catch (error) { message(error.message, 'error'); byId('refreshSources').disabled = false; }
+  finally { byId('reload').disabled = false; }
+}
+byId('reload').addEventListener('click', loadStatus);
+byId('refreshSources').addEventListener('click', async () => {
+  clearTimeout(statusTimer);
+  byId('refreshSources').disabled = true;
+  try {
+    const urls = [...new Set(byId('subscriptionInput').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean))];
+    if (!urls.length) throw new Error('请输入至少一个订阅地址。');
+    const query = new URLSearchParams({aggregate:String(byId('aggregate').checked)});
+    urls.forEach(value=>query.append('url',value));
+    requestQuery = query.toString();
+    renderStatus(await api('/api/subscriptions?' + requestQuery + '&refresh=true'));
+    message('订阅地址已通过请求参数传入，正在读取。','success');
+  } catch(error) { message(error.message,'error'); byId('refreshSources').disabled=false; }
 });
 function renderNodes(nodes) {
   byId('nodePreview').replaceChildren();
@@ -120,8 +99,7 @@ function renderNodes(nodes) {
 }
 async function openSourcePreview(source) {
   byId('previewTitle').textContent = (source.name || source.id) + ' · 节点预览'; byId('yamlFormArea').hidden = true; byId('previewMessage').textContent = '正在读取缓存…'; renderNodes([]); byId('previewDialog').showModal();
-  try { const data = await api('/api/sources/' + encodeURIComponent(source.id) + '/preview'); renderNodes(data.nodes); byId('previewMessage').textContent = data.source.using_cache ? '上次刷新失败，当前展示最近成功缓存。' : ''; }
-  catch (error) { byId('previewMessage').textContent = error.message; }
+  renderNodes(nodePreviews[source.id] || []); byId('previewMessage').textContent = source.using_cache ? '上次读取失败，当前展示最近成功缓存。' : '';
 }
 byId('closePreview').addEventListener('click', () => byId('previewDialog').close());
 byId('yamlPreview').addEventListener('click', () => { byId('previewTitle').textContent = 'YAML 节点预览'; byId('yamlFormArea').hidden = false; byId('previewMessage').textContent = ''; renderNodes([]); byId('previewDialog').showModal(); });
@@ -132,23 +110,7 @@ byId('parseYaml').addEventListener('click', async () => {
   finally { byId('parseYaml').disabled = false; }
 });
 
-let savedSources = [];
 let renameRules = [];
-async function loadSubscriptionInput() {
-  const data = await api('/api/sources'); savedSources = data.sources || [];
-  byId('subscriptionInput').value = savedSources.map(source => source.url).join('\n');
-  byId('aggregate').checked = savedSources.length <= 1 || savedSources.filter(source => source.enabled).length > 1;
-}
-async function saveSubscriptionInput() {
-  const urls = [...new Set(byId('subscriptionInput').value.split(/\r?\n/).map(line => line.trim()).filter(Boolean))];
-  if (!urls.length) throw new Error('请输入至少一个订阅地址。');
-  for (const value of urls) { let url; try { url = new URL(value); } catch { throw new Error('请输入有效的 HTTP / HTTPS 订阅地址。'); } if (!['http:','https:'].includes(url.protocol)) throw new Error('此处只接受 HTTP / HTTPS YAML 订阅地址，协议链接导入暂不可用。'); }
-  const previous = new Map(savedSources.map(source => [source.url, source]));
-  const aggregate = byId('aggregate').checked;
-  const sources = urls.map((url,index) => ({...(previous.get(url) || {id:crypto.randomUUID?.() || Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),name:'订阅 '+(index+1)}), url, enabled:aggregate || index===0}));
-  await api('/api/sources',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(sources)}); savedSources = sources;
-}
-byId('saveSubscriptions').addEventListener('click', async () => { byId('saveSubscriptions').disabled=true; try { await saveSubscriptionInput(); await loadStatus(); message('订阅已保存。','success'); } catch(error){message(error.message,'error');} finally {byId('saveSubscriptions').disabled=false;} });
 function setMode(advanced) {
   byId('advancedOptions').hidden = !advanced;
   byId('basicTab').className = 'tab' + (!advanced ? ' active' : ''); byId('advancedTab').className = 'tab' + (advanced ? ' active' : '');
@@ -168,6 +130,7 @@ async function loadConversionOptions() {
   const data=await api('/api/options'); const options=data.options;
   renameRules=structuredClone(options.rename_rules||[]);renderRenameRules();byId('aiDomains').value=(options.ai.domains||[]).join('\n');byId('groupSettings').value=options.groups_json||'[]';
   byId('aiNode').replaceChildren();const empty=document.createElement('option');empty.value='';empty.textContent='未指定';byId('aiNode').append(empty);
+  byId('countSelf').textContent=data.self_hosted_nodes.length;
   data.self_hosted_nodes.forEach((node,index)=>{const option=document.createElement('option');option.value=node.id;option.textContent=node.name||'自建节点 '+(index+1);byId('aiNode').append(option);});
   byId('aiNode').value=options.ai.node_id||'';byId('aiNode').disabled=false;byId('saveOptions').disabled=false;byId('addRename').disabled=false;
 }
@@ -178,6 +141,7 @@ byId('saveOptions').addEventListener('click',async()=>{
   catch(error){message(error.message,'error');}finally{byId('saveOptions').disabled=false;}
 });
 
+loadConversionOptions().catch(error=>message(error.message,'error'));
 </script>
 </body>
 </html>

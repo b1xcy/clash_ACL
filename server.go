@@ -1,16 +1,17 @@
 package main
 
 import (
-	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"sync"
 )
 
-func newHandler(configPath, adminToken, downloadToken string) http.Handler {
+func newHandler(configPath string) http.Handler {
 	mux := http.NewServeMux()
 	var configMu sync.RWMutex
 	sourceManager := newSourceManager(filepath.Dir(configPath))
@@ -19,7 +20,7 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Write(indexHTML)
 	})
-	mux.Handle("GET /api/status", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) {
 		configMu.RLock()
 		defer configMu.RUnlock()
 		config, err := readConfig(configPath)
@@ -39,8 +40,8 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 			"capabilities": map[string]bool{"conversion": false, "uri_import": false}, "sources": sources,
 			"counts": map[string]int{"sources": len(config.Sources), "enabled": enabled, "self_hosted": len(config.SelfHostedNodes), "groups": len(config.Groups)},
 		})
-	})))
-	mux.Handle("GET /api/options", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc("GET /api/options", func(w http.ResponseWriter, r *http.Request) {
 		configMu.RLock()
 		defer configMu.RUnlock()
 		config, err := readConfig(configPath)
@@ -64,8 +65,8 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"options": ConversionOptions{RenameRules: config.RenameRules, AI: config.AI, GroupsJSON: string(groups)}, "self_hosted_nodes": nodes,
 		})
-	})))
-	mux.Handle("PUT /api/options", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc("PUT /api/options", func(w http.ResponseWriter, r *http.Request) {
 		reader := http.MaxBytesReader(w, r.Body, 4<<20)
 		defer reader.Close()
 		options, groups, err := decodeOptions(reader)
@@ -90,8 +91,8 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "saved"})
-	})))
-	mux.Handle("GET /api/sources", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc("GET /api/sources", func(w http.ResponseWriter, r *http.Request) {
 		configMu.RLock()
 		defer configMu.RUnlock()
 		config, err := readConfig(configPath)
@@ -100,8 +101,8 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"sources": config.Sources})
-	})))
-	mux.Handle("PUT /api/sources", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc("PUT /api/sources", func(w http.ResponseWriter, r *http.Request) {
 		reader := http.MaxBytesReader(w, r.Body, 4<<20)
 		defer reader.Close()
 		var sources []Source
@@ -133,8 +134,8 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "saved"})
-	})))
-	mux.Handle("POST /api/sources/refresh", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc("POST /api/sources/refresh", func(w http.ResponseWriter, r *http.Request) {
 		configMu.RLock()
 		config, err := readConfig(configPath)
 		configMu.RUnlock()
@@ -148,8 +149,8 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 			views[index] = sourceManager.view(source)
 		}
 		writeJSON(w, http.StatusAccepted, map[string]any{"sources": views})
-	})))
-	mux.Handle("GET /api/sources/{id}/preview", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc("GET /api/sources/{id}/preview", func(w http.ResponseWriter, r *http.Request) {
 		configMu.RLock()
 		config, err := readConfig(configPath)
 		configMu.RUnlock()
@@ -170,8 +171,8 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "source not found"})
-	})))
-	mux.Handle("POST /api/yaml/preview", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc("POST /api/yaml/preview", func(w http.ResponseWriter, r *http.Request) {
 		reader := http.MaxBytesReader(w, r.Body, maxSubscriptionSize)
 		defer reader.Close()
 		data, err := io.ReadAll(reader)
@@ -185,12 +186,12 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"nodes": previewNodes(proxies), "node_count": len(proxies)})
-	})))
+	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte("ok\n"))
 	})
-	mux.Handle("GET /api/config", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
 		configMu.RLock()
 		defer configMu.RUnlock()
 		config, err := readConfig(configPath)
@@ -199,8 +200,8 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, config)
-	})))
-	mux.Handle("PUT /api/config", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc("PUT /api/config", func(w http.ResponseWriter, r *http.Request) {
 		reader := http.MaxBytesReader(w, r.Body, 4<<20)
 		defer reader.Close()
 		config, err := decodeConfig(reader)
@@ -215,29 +216,77 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "saved"})
-	})))
-	mux.Handle("GET /download", authorize(downloadToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+	mux.HandleFunc("GET /download", func(w http.ResponseWriter, r *http.Request) {
+
+		if _, err := requestSources(r.URL.Query()); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
 		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "subscription generation is not implemented yet"})
-	})))
+	})
+
+	mux.HandleFunc("GET /api/subscriptions", func(w http.ResponseWriter, r *http.Request) {
+		sources, err := requestSources(r.URL.Query())
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		views := make([]SourceView, 0, len(sources))
+		previews := make(map[string][]NodePreview)
+		enabled := 0
+		for _, source := range sources {
+			if source.Enabled {
+				enabled++
+			}
+			if r.URL.Query().Get("refresh") == "true" {
+				sourceManager.startRefresh(source, 2)
+			}
+			views = append(views, sourceManager.view(source))
+			if cache, err := sourceManager.readCache(source); err == nil && cache.LastSuccess != nil {
+				previews[source.ID] = previewNodes(cache.Proxies)
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"sources": views, "previews": previews,
+			"counts": map[string]int{"sources": len(sources), "enabled": enabled},
+		})
+	})
 	return mux
 }
 
-func authorize(token string, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
-		header := r.Header.Get("Authorization")
-		value, ok := strings.CutPrefix(header, "Bearer ")
-		if !ok || token == "" || subtle.ConstantTimeCompare([]byte(value), []byte(token)) != 1 {
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(value)
+}
+
+func requestSources(query url.Values) ([]Source, error) {
+	sources := make([]Source, 0)
+	seen := make(map[string]bool)
+	for _, value := range query["url"] {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		parsed, err := url.Parse(value)
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			return nil, fmt.Errorf("expected HTTP / HTTPS subscription URLs")
+		}
+		seen[value] = true
+		sources = append(sources, Source{
+			ID: sourceKey(Source{URL: value}), URL: value, Name: fmt.Sprintf("订阅 %d", len(sources)+1),
+			Enabled: query.Get("aggregate") != "false" || len(sources) == 0,
+		})
+	}
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("at least one url parameter is required")
+	}
+	for _, key := range []string{"aggregate", "refresh"} {
+		if value := query.Get(key); value != "" && value != "true" && value != "false" {
+			return nil, fmt.Errorf("%s must be true or false", key)
+		}
+	}
+	return sources, nil
 }

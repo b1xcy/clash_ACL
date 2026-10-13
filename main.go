@@ -17,17 +17,6 @@ func main() {
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		log.Fatal("cannot create data directory")
 	}
-	tokenPath := filepath.Join(dataDir, "tokens.json")
-	adminToken, downloadToken, err := resolveTokens(tokenPath, os.Getenv("CLASH_ACL_ADMIN_TOKEN"), os.Getenv("CLASH_ACL_DOWNLOAD_TOKEN"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	if os.Getenv("CLASH_ACL_ADMIN_TOKEN") == "" {
-		log.Printf("CLASH_ACL_ADMIN_TOKEN=%s", adminToken)
-	}
-	if os.Getenv("CLASH_ACL_DOWNLOAD_TOKEN") == "" {
-		log.Printf("CLASH_ACL_DOWNLOAD_TOKEN=%s", downloadToken)
-	}
 	configPath := filepath.Join(dataDir, "config.json")
 	if _, err := readConfig(configPath); errors.Is(err, os.ErrNotExist) {
 		if err := writeConfig(configPath, defaultConfig()); err != nil {
@@ -38,7 +27,7 @@ func main() {
 	}
 	server := &http.Server{
 		Addr:              envOr("CLASH_ACL_LISTEN_ADDR", "127.0.0.1:8080"),
-		Handler:           newHandler(configPath, adminToken, downloadToken),
+		Handler:           newHandler(configPath),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
