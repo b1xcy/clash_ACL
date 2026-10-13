@@ -72,6 +72,7 @@
 - 按用户明确要求，环境变量为空时的有效随机令牌在启动日志中直接打印，重启复用时同样打印；显式设置的令牌不打印。除这一启动日志例外，日志、错误响应和预览中的秘密字段脱敏。
 - 真实订阅 URL、令牌、密码、UUID、私钥、自建服务器信息和客户端原始配置不得提交 Git。验证素材只使用脱敏或合成数据。
 - 不直接修改用户正在使用的 Clash 配置。迁移时生成独立新配置，验证后再处理旧扩展脚本，避免重复注入。
+- 进度工作台通过 Go embed 内嵌静态 HTML，随 Docker 镜像交付；页面不依赖 CDN 或前端运行服务。功能完成时同步维护 `featureProgress()`，配置数量与来源刷新状态从受管理令牌保护的 API 读取。
 
 ## 分阶段落地
 
@@ -99,7 +100,7 @@
 - workflow 位于 `.github/workflows/docker-image.yml`；用户推送到 `main`、推送 `v*` 标签或在这些 ref 手动触发时构建并发布。
 - 镜像地址为 `ghcr.io/b1xcy/clash_acl`，`main` 发布 `latest`，版本标签发布同名镜像标签，并保留提交 SHA 标签。
 - 使用 GitHub 提供的 `GITHUB_TOKEN` 与 `packages: write` 权限登录 GHCR，不要求额外 Docker Hub 账号或 PAT。
-- 已提供基础 Go 服务和多阶段 Dockerfile，workflow 直接执行镜像构建与发布。构建阶段运行 Go 测试；运行镜像只包含程序、HTTPS 根证书和数据目录，配置与凭据使用数据卷或运行时注入。
+- 已提供 Go 服务、内嵌 HTML 和多阶段 Dockerfile，workflow 直接执行镜像构建与发布。构建阶段按 `go.mod` / `go.sum` 下载依赖并运行 Go 测试；运行镜像只包含程序、HTTPS 根证书和数据目录，配置与凭据使用数据卷或运行时注入。
 - 首版 workflow 构建 `linux/amd64` 镜像，VPS 架构不匹配时再补充对应平台。
 - agent 只执行本地 commit，不执行 Git push 或远程触发；用户自行推送后，workflow 发布镜像。Git push 与 workflow 向 GHCR 发布镜像是不同操作。
 
