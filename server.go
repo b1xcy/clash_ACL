@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -37,7 +38,7 @@ func newHandler(configPath string) http.Handler {
 			sources = append(sources, sourceManager.view(source))
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"capabilities": map[string]bool{"conversion": false, "uri_import": true}, "sources": sources,
+			"capabilities": map[string]bool{"conversion": false, "uri_import": true, "aggregation": true}, "sources": sources,
 			"counts": map[string]int{"sources": len(config.Sources), "enabled": enabled, "self_hosted": len(config.SelfHostedNodes), "groups": len(config.Groups)},
 		})
 	})
@@ -207,6 +208,72 @@ func newHandler(configPath string) http.Handler {
 			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"lines": lines, "valid_count": valid, "error_count": len(lines) - valid})
+	})
+	mux.HandleFunc("POST /api/aggregate/preview", func(w http.ResponseWriter, r *http.Request) {
+		reader := http.MaxBytesReader(w, r.Body, maxSubscriptionSize)
+		defer reader.Close()
+		var request struct {
+			URLs        []string `json:"urls"`
+			Aggregate   *bool    `json:"aggregate"`
+			DirectLinks string   `json:"direct_links"`
+		}
+		decoder := json.NewDecoder(reader)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&request); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "expected an aggregation request object"})
+			return
+		}
+		var extra any
+		if err := decoder.Decode(&extra); err != io.EOF {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "expected one aggregation request object"})
+			return
+		}
+		inputs := make([]AggregatedNode, 0)
+		views := make([]SourceView, 0)
+		if len(request.URLs) != 0 {
+			query := url.Values{"url": request.URLs}
+			if request.Aggregate != nil {
+				query.Set("aggregate", strconv.FormatBool(*request.Aggregate))
+			}
+			sources, err := requestSources(query)
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+			for _, source := range sources {
+				view := sourceManager.view(source)
+				views = append(views, view)
+				if !source.Enabled {
+					continue
+				}
+				cache, err := sourceManager.readCache(source)
+				if err != nil || cache.LastSuccess == nil || view.State == "refreshing" {
+					writeJSON(w, http.StatusConflict, map[string]string{"error": "read enabled subscriptions before aggregation"})
+					return
+				}
+				for _, proxy := range cache.Proxies {
+					name, _ := proxy["name"].(string)
+					inputs = append(inputs, AggregatedNode{Proxy: proxy, Origins: []NodeOrigin{{SourceID: source.ID, SourceName: source.Name, OriginalName: name}}})
+				}
+			}
+		}
+		for _, line := range parseURILines(request.DirectLinks) {
+			if line.Error != "" {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "direct links contain invalid lines; confirm valid nodes first"})
+				return
+			}
+			inputs = append(inputs, AggregatedNode{Proxy: line.Proxy, Origins: []NodeOrigin{{SourceID: "direct-links", SourceName: "直接节点", OriginalName: line.Name, Line: line.Line}}})
+		}
+		if len(inputs) == 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "aggregation requires at least one node"})
+			return
+		}
+		nodes, duplicates, err := aggregateNodes(inputs)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"nodes": nodes, "input_count": len(inputs), "node_count": len(nodes), "duplicate_count": duplicates, "sources": views})
 	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
