@@ -4,11 +4,11 @@
 
 ## 当前状态
 
-项目处于阶段 0：需求与开发流程基线。已创建 `agent.md`、`README.md` 与本文；尚无 Go 服务、前端或可运行转换功能。
+项目处于阶段 0：需求与开发流程基线。已创建 `agent.md`、`README.md`、本文及 GHCR 镜像发布 workflow；尚无 Go 服务、前端、Dockerfile 或可运行转换功能。
 
 目标远程仓库：`https://github.com/b1xcy/clash_ACL.git`。
 
-初始开发分支：`main`。提交身份和远程同步状态以 `git log -1`、`git status --short --branch` 与远程分支查询为准。
+初始开发分支：`main`。提交身份以 `git log -1` 为准；agent 只做本地 commit，不执行 Git push，用户自行同步远程。
 
 ## 已确定的需求
 
@@ -19,7 +19,9 @@
 - AI 按服务域名分流到指定自建固定出口，首版不添加应用或进程规则。
 - AI 中转站域名由用户配置，不通过应用名称判断或自动套用固定出口。
 - AI 不自动回退到机场节点或 DIRECT；同出口备用节点须验证实际出口 IP。
-- 每个功能点完成后更新 handoff，必要时更新 README，再提交并推送 GitHub。
+- 下载默认使用配置快照；`refresh=true` 强制刷新该配置启用的来源并等待生成结果，省略参数或 `refresh=false` 不强制刷新。
+- 使用 GitHub Actions 构建 Docker 镜像，托管在 GHCR，VPS 拉取运行并挂载持久化数据卷。
+- 每个功能点完成后更新 handoff，必要时更新 README，再做本地 commit，不执行 Git push。
 
 ## 已完成的调查
 
@@ -31,15 +33,16 @@
 - 现有 AI 组与自建组允许选择其他出口或 DIRECT，不能提供固定出口约束。
 - 生效配置中 Copilot 域名先匹配微软 Bing 规则，后面的 AI 规则被覆盖，生成器需要重新安排优先级。
 - 两份旧倍率脚本对 1 倍节点使用不同边界，后续按三档统一。
-- 当前来源的专用脚本包含银行域名到 SOCKS5 节点的分流，节点使用 `dialer-proxy`，需要作为独立服务策略迁移。
 - 本机客户端未启用 TUN；实际流量是否进入代理需在迁移验证时确认。
 - 本次没有修改正在使用的客户端配置，没有将真实订阅或节点配置复制进项目。
 
 ## 本次交付与验证范围
 
-- `agent.md`：产品约束、阶段计划、验收方式、逐功能交接与 Git 同步流程、uv 规则。
-- `README.md`：项目目标、计划能力、倍率及 AI 策略、架构、开发顺序和当前状态。
-- 本次为文档基线，不包含运行时测试或性能压测。提交前执行文档审查与 `git diff --check`；推送后检查本地与远程 commit 是否一致。
+- `agent.md`：改为只 commit、不 push；删除临时代理的迁移要求；补充强制刷新参数和 GHCR 镜像发布流程。
+- `README.md`：同步更新功能范围、下载行为、镜像发布说明与本地提交约定。
+- `.github/workflows/docker-image.yml`：在 `main`、`v*` 标签或对应 ref 手动触发时构建并发布 GHCR 镜像；缺少 Dockerfile 时提示并跳过。
+- 强制刷新、自建出口与运行时行为仍为规划，尚未实现。无 Dockerfile，未构建或发布镜像；本次不执行 Git push 或远程 workflow。
+- 已通过文档审查、`git diff --check` 与 `go run github.com/rhysd/actionlint/cmd/actionlint@latest -shellcheck= .github/workflows/docker-image.yml`（exit code 0）。未执行服务测试、性能压测或实际镜像构建。
 
 ## 下一步
 
