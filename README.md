@@ -6,33 +6,30 @@
 
 ## 启动基础服务
 
-创建本地 `.env` 文件，设置两个不同的令牌；该文件已从 Git 和 Docker 构建上下文排除：
-
-```dotenv
-CLASH_ACL_ADMIN_TOKEN=replace-with-your-admin-token
-CLASH_ACL_DOWNLOAD_TOKEN=replace-with-a-different-download-token
-```
-
-从项目根目录构建并启动：
+从项目根目录构建并启动。两个令牌都可以省略，服务会自动生成：
 
 ```bash
 docker build -t clash-acl:local .
 docker run -d --name clash-acl --restart unless-stopped \
   -p 127.0.0.1:8080:8080 \
-  --env-file .env \
   -v clash-acl-data:/data \
   clash-acl:local
 curl http://127.0.0.1:8080/healthz
+docker logs clash-acl
 ```
 
-Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/config.json`，容器重建后保留配置。上面的端口仅绑定本机，远程管理可通过 HTTPS 反向代理访问。
+Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/config.json`；未设置的令牌使用安全随机数生成，并保存在 `/data/tokens.json`，容器重建后复用。新建令牌文件在 Linux 上的权限为 `0600`。上面的端口仅绑定本机，远程管理可通过 HTTPS 反向代理访问。
 
-本地开发需要 Go 1.25.5 或更新版本。设置上述两个环境变量后执行 `go run .`；默认监听 `127.0.0.1:8080`，配置保存于 `data/config.json`。
+环境变量为空时，启动日志直接打印对应有效令牌，例如 `CLASH_ACL_ADMIN_TOKEN=...`；重启复用保存的随机令牌时也打印。显式设置的环境变量令牌不会打印。
+
+需要指定令牌时，可创建本地 `.env` 文件，并在 `docker run` 中添加 `--env-file .env`。环境变量优先于保存的随机令牌；两个有效令牌不能相同。`.env` 已从 Git 和 Docker 构建上下文排除。
+
+本地开发需要 Go 1.25.5 或更新版本，执行 `go run .` 即可；默认监听 `127.0.0.1:8080`，配置保存于 `data/config.json`，自动生成的令牌保存于 `data/tokens.json`。
 
 | 环境变量 | 用途 | 默认值 |
 | --- | --- | --- |
-| `CLASH_ACL_ADMIN_TOKEN` | 配置管理令牌 | 必填 |
-| `CLASH_ACL_DOWNLOAD_TOKEN` | 独立下载令牌 | 必填，不能与管理令牌相同 |
+| `CLASH_ACL_ADMIN_TOKEN` | 配置管理令牌 | 空值时复用保存值或随机生成，并打印至启动日志 |
+| `CLASH_ACL_DOWNLOAD_TOKEN` | 独立下载令牌 | 空值时复用保存值或随机生成，并打印至启动日志；不能与管理令牌相同 |
 | `CLASH_ACL_LISTEN_ADDR` | HTTP 监听地址 | 本地 `127.0.0.1:8080`；镜像内 `0.0.0.0:8080` |
 | `CLASH_ACL_DATA_DIR` | 私有配置目录 | 本地 `data`；镜像内 `/data` |
 
@@ -45,7 +42,7 @@ Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/co
 | `PUT /api/config` | 管理令牌 | 用 JSON 请求体整体替换并保存配置 |
 | `GET /download` | 下载令牌 | 当前返回 HTTP 501，生成器尚未实现 |
 
-认证使用 `Authorization: Bearer <令牌>`，目前不支持通过 URL 参数传令牌。配置读写接口供管理使用，返回的完整配置可能包含节点凭据；响应不缓存，日志和校验错误不打印来源 URL 或节点秘密。
+认证使用 `Authorization: Bearer <令牌>`，目前不支持通过 URL 参数传令牌。配置读写接口供管理使用，返回的完整配置可能包含节点凭据；响应不缓存，日志和校验错误不打印来源 URL 或节点秘密。按项目约定，环境变量为空时的随机访问令牌在启动日志中直接打印。
 
 ```bash
 curl -H 'Authorization: Bearer <管理令牌>' http://127.0.0.1:8080/api/config
@@ -66,6 +63,7 @@ clash_ACL 将来源节点与用户策略分离：选择需要聚合的来源，�
 | 功能 | 目标行为 |
 | --- | --- |
 | 可选订阅聚合 | 支持单来源或勾选多个来源，只聚合节点 |
+| 多行协议链接导入 | 每行一个节点链接，支持混合协议、导入预览及逐行错误反馈 |
 | 来源管理 | 启用开关、更新状态、缓存与失败提示 |
 | 自建节点 | 独立管理节点，保留完整协议字段 |
 | 节点身份与去重 | 保留来源及稳定 ID，不仅按节点名或服务器 IP 去重 |
@@ -77,7 +75,9 @@ clash_ACL 将来源节点与用户策略分离：选择需要聚合的来源，�
 | 服务专用策略 | 支持中转站等额外域名的独立分流 |
 | 配置下载 | 固定下载地址，默认快照下载，可带 `refresh=true` 强制刷新 |
 
-首版支持 Clash/Mihomo YAML 来源与手动配置的自建节点；更多输入格式按需增加。
+首版计划支持 Clash/Mihomo YAML 来源、多行直接节点协议链接与手动配置的自建节点。协议链接包括 `ss://`、`tuic://`、`vless://`、`vmess://`、`trojan://`、`hysteria2://`（含 `hy2://`）和 `anytls://`；可混合粘贴，每行一个，忽略空行及首尾空白。
+
+导入时预览有效节点并逐行显示解析错误，由用户确认导入。节点进入统一聚合、去重、重命名和倍率分组；未知倍率归标准倍率。完整 Base64 订阅等其他输入格式后续按需增加。**多行协议链接导入尚未实现。**
 
 ## 倍率分类
 
@@ -127,7 +127,7 @@ flowchart LR
 ## 开发顺序
 
 1. Go 项目、配置存储与基础服务。
-2. YAML 来源读取、刷新与缓存。
+2. YAML 来源读取、刷新与缓存，以及多行协议链接导入。
 3. 多来源聚合、节点身份与去重。
 4. 倍率分类与重命名预览。
 5. 分组、AI 固定出口与域名规则生成。
@@ -135,7 +135,7 @@ flowchart LR
 7. 最小管理页面。
 8. 客户端迁移验证、Docker 镜像构建与 VPS 部署。
 
-第 1 项基础服务及 Docker 部署已完成，下一步实现 YAML 来源读取与缓存。随后改进可视化编辑体验，再按需要扩展 Provider 输出或其他输入格式。
+第 1 项基础服务及 Docker 部署已完成，下一步实现 YAML 来源读取与缓存，以及新增的多行协议链接导入。随后改进可视化编辑体验，再按需要扩展 Provider 输出或其他输入格式。
 
 ## Docker 镜像发布
 

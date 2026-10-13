@@ -13,14 +13,20 @@ import (
 )
 
 func main() {
-	adminToken := os.Getenv("CLASH_ACL_ADMIN_TOKEN")
-	downloadToken := os.Getenv("CLASH_ACL_DOWNLOAD_TOKEN")
-	if adminToken == "" || downloadToken == "" || adminToken == downloadToken {
-		log.Fatal("set distinct, non-empty CLASH_ACL_ADMIN_TOKEN and CLASH_ACL_DOWNLOAD_TOKEN")
-	}
 	dataDir := envOr("CLASH_ACL_DATA_DIR", "data")
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		log.Fatal("cannot create data directory")
+	}
+	tokenPath := filepath.Join(dataDir, "tokens.json")
+	adminToken, downloadToken, err := resolveTokens(tokenPath, os.Getenv("CLASH_ACL_ADMIN_TOKEN"), os.Getenv("CLASH_ACL_DOWNLOAD_TOKEN"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if os.Getenv("CLASH_ACL_ADMIN_TOKEN") == "" {
+		log.Printf("CLASH_ACL_ADMIN_TOKEN=%s", adminToken)
+	}
+	if os.Getenv("CLASH_ACL_DOWNLOAD_TOKEN") == "" {
+		log.Printf("CLASH_ACL_DOWNLOAD_TOKEN=%s", downloadToken)
 	}
 	configPath := filepath.Join(dataDir, "config.json")
 	if _, err := readConfig(configPath); errors.Is(err, os.ErrNotExist) {
