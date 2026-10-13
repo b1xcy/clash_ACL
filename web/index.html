@@ -15,6 +15,7 @@
 <section class="panel converter">
 <div class="tabs" role="tablist"><button class="tab active" id="basicTab" role="tab" aria-selected="true">基础模式</button><button class="tab" id="advancedTab" role="tab" aria-selected="false">进阶模式</button></div>
 <div class="row"><label for="subscriptionInput">订阅链接</label><div><textarea class="field" id="subscriptionInput" rows="5" spellcheck="false" placeholder="https://example.com/subscribe?token=...&#10;https://example.net/clash.yaml"></textarea><div class="hint">每行一个 Clash / Mihomo YAML 订阅地址。关闭聚合时只使用第一行。</div><div class="actions input-actions"><label class="inline-check"><input type="checkbox" id="aggregate" checked>聚合多个订阅</label><button class="secondary" id="refreshSources">读取订阅</button></div><details class="source-summary"><summary>本次 <span id="countSources">0</span> 个来源 · 启用 <span id="countEnabled">0</span> 个</summary><div class="source-list" id="sourceList"><p class="muted">输入订阅地址后点击读取订阅。</p></div><div class="actions input-actions"><button class="secondary" id="reload" disabled>更新来源状态</button><button class="secondary" id="yamlPreview">本地 YAML 预览</button></div></details></div></div>
+<div class="row"><label for="uriText">直接节点链接</label><div><details><summary>导入 SS / TUIC / VLESS / VMess / Trojan / Hysteria2 / AnyTLS</summary><textarea class="field" id="uriText" rows="4" spellcheck="false" placeholder="每行一个协议链接，可混合多种协议"></textarea><div class="actions input-actions"><button class="secondary" id="previewURI">解析预览</button><button class="secondary" id="useURI" disabled>使用有效节点</button><button class="secondary" id="clearURI">清空导入</button></div><div class="hint" id="uriSummary">尚未导入直接节点。链接只保留在当前页面，刷新页面后清空。</div><div id="uriResults"></div></details></div></div>
 <div class="row"><label for="target">客户端</label><div><select class="field field-small" id="target"><option value="mihomo">Mihomo / Clash.Meta</option></select></div></div>
 <div id="advancedOptions" hidden>
 <div class="divider"></div>
@@ -26,7 +27,7 @@
 <div class="row"><div></div><div class="actions"><button class="secondary" id="saveOptions" disabled>保存转换设置</button><span class="options-note">保存设置不会修改订阅来源或自建节点。</span></div></div>
 </div>
 <div class="divider"></div>
-<div class="row"><div class="label">生成订阅</div><div class="notice">订阅配置生成暂不可用。目前可以通过参数读取订阅并预览节点、保存转换设置。</div></div>
+<div class="row"><div class="label">生成订阅</div><div class="notice">订阅配置生成暂不可用。目前可以读取订阅、导入直接节点到当前页面、保存转换设置。</div></div>
 <div class="output-actions"><button class="primary" id="generate" disabled>生成订阅</button></div>
 <div class="row"><label for="convertedUrl">订阅地址</label><div class="output-box"><input class="field" id="convertedUrl" readonly placeholder="生成后显示订阅地址"><button class="secondary" disabled>复制</button><button class="secondary" disabled>导入客户端</button></div></div>
 </section>
@@ -141,6 +142,40 @@ byId('saveOptions').addEventListener('click',async()=>{
   catch(error){message(error.message,'error');}finally{byId('saveOptions').disabled=false;}
 });
 
+let parsedURILines = [];
+let parsedURIText = '';
+let confirmedURIs = [];
+byId('uriText').addEventListener('input', () => { byId('useURI').disabled = true; byId('uriSummary').textContent='输入已修改，请重新解析预览；已导入 ' + confirmedURIs.length + ' 个节点。'; });
+byId('previewURI').addEventListener('click', async () => {
+  byId('previewURI').disabled = true; byId('useURI').disabled = true; byId('uriResults').replaceChildren();
+  const text = byId('uriText').value;
+  try {
+    const data = await api('/api/uri/preview', {method:'POST', headers:{'Content-Type':'text/plain'}, body:text});
+    if(byId('uriText').value !== text) return;
+    parsedURIText = text;
+    parsedURILines = data.lines;
+    data.lines.forEach(line => {
+      const row = document.createElement('div'); row.className = 'node-row';
+      const label = document.createElement('span'); label.textContent = '第 ' + line.line + ' 行 · ' + (line.error ? '解析失败' : line.name);
+      const result = document.createElement('span'); result.textContent = line.error || line.type; if(line.error) result.className='source-error';
+      row.append(label,result); byId('uriResults').append(row);
+    });
+    byId('uriSummary').textContent = data.valid_count + ' 行有效，' + data.error_count + ' 行失败。确认后仅使用有效行；已导入 ' + confirmedURIs.length + ' 个节点。';
+    byId('useURI').disabled = data.valid_count === 0 || byId('uriText').value !== parsedURIText;
+  } catch(error) { byId('uriSummary').textContent = error.message; }
+  finally { byId('previewURI').disabled = false; }
+});
+byId('useURI').addEventListener('click', () => {
+  if(byId('uriText').value !== parsedURIText) return;
+  const original = parsedURIText.split('\n');
+  confirmedURIs = parsedURILines.filter(line=>!line.error).map(line=>original[line.line-1].trim());
+  byId('uriSummary').textContent = '已在当前页面使用 ' + confirmedURIs.length + ' 个有效节点；失败行未导入。';
+  byId('useURI').disabled = true;
+});
+byId('clearURI').addEventListener('click', () => {
+  confirmedURIs=[]; parsedURILines=[]; parsedURIText=''; byId('uriText').value=''; byId('uriResults').replaceChildren(); byId('useURI').disabled=true;
+  byId('uriSummary').textContent='尚未导入直接节点。链接只保留在当前页面，刷新页面后清空。';
+});
 loadConversionOptions().catch(error=>message(error.message,'error'));
 </script>
 </body>

@@ -37,7 +37,7 @@ func newHandler(configPath string) http.Handler {
 			sources = append(sources, sourceManager.view(source))
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"capabilities": map[string]bool{"conversion": false, "uri_import": false}, "sources": sources,
+			"capabilities": map[string]bool{"conversion": false, "uri_import": true}, "sources": sources,
 			"counts": map[string]int{"sources": len(config.Sources), "enabled": enabled, "self_hosted": len(config.SelfHostedNodes), "groups": len(config.Groups)},
 		})
 	})
@@ -186,6 +186,27 @@ func newHandler(configPath string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"nodes": previewNodes(proxies), "node_count": len(proxies)})
+	})
+	mux.HandleFunc("POST /api/uri/preview", func(w http.ResponseWriter, r *http.Request) {
+		reader := http.MaxBytesReader(w, r.Body, maxSubscriptionSize)
+		defer reader.Close()
+		data, err := io.ReadAll(reader)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "cannot read node links; maximum size is 8 MiB"})
+			return
+		}
+		lines := parseURILines(string(data))
+		if len(lines) == 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "enter at least one node link"})
+			return
+		}
+		valid := 0
+		for _, line := range lines {
+			if line.Error == "" {
+				valid++
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"lines": lines, "valid_count": valid, "error_count": len(lines) - valid})
 	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
