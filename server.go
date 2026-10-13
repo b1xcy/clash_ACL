@@ -36,9 +36,60 @@ func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 			sources = append(sources, sourceManager.view(source))
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"features": featureProgress(), "sources": sources,
+			"capabilities": map[string]bool{"conversion": false, "uri_import": false}, "sources": sources,
 			"counts": map[string]int{"sources": len(config.Sources), "enabled": enabled, "self_hosted": len(config.SelfHostedNodes), "groups": len(config.Groups)},
 		})
+	})))
+	mux.Handle("GET /api/options", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		configMu.RLock()
+		defer configMu.RUnlock()
+		config, err := readConfig(configPath)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read configuration"})
+			return
+		}
+		groups, err := json.Marshal(config.Groups)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read group settings"})
+			return
+		}
+		if config.Groups == nil {
+			groups = []byte("[]")
+		}
+		nodes := make([]map[string]string, 0, len(config.SelfHostedNodes))
+		for _, node := range config.SelfHostedNodes {
+			name, _ := node.Proxy["name"].(string)
+			nodes = append(nodes, map[string]string{"id": node.ID, "name": name})
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"options": ConversionOptions{RenameRules: config.RenameRules, AI: config.AI, GroupsJSON: string(groups)}, "self_hosted_nodes": nodes,
+		})
+	})))
+	mux.Handle("PUT /api/options", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reader := http.MaxBytesReader(w, r.Body, 4<<20)
+		defer reader.Close()
+		options, groups, err := decodeOptions(reader)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		configMu.Lock()
+		defer configMu.Unlock()
+		config, err := readConfig(configPath)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read configuration"})
+			return
+		}
+		config.RenameRules, config.AI, config.Groups = options.RenameRules, options.AI, groups
+		if err := validateConfig(config); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if err := writeConfig(configPath, config); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot save conversion settings"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "saved"})
 	})))
 	mux.Handle("GET /api/sources", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		configMu.RLock()

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestDashboardAndStatusPrivacy(t *testing.T) {
+func TestConverterPageAndStatusPrivacy(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	config := defaultConfig()
 	config.Sources = []Source{{ID: "test", Name: "Test source", URL: "https://example.invalid/sub?token=private-test-value", Enabled: true}}
@@ -18,8 +18,8 @@ func TestDashboardAndStatusPrivacy(t *testing.T) {
 	handler := newHandler(path, "admin-test", "download-test")
 	page := httptest.NewRecorder()
 	handler.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/", nil))
-	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "订阅工作台") {
-		t.Fatal("embedded dashboard not served")
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "订阅转换") || strings.Contains(page.Body.String(), "功能进度") {
+		t.Fatal("embedded converter form not served")
 	}
 	for _, token := range []string{"", "download-test", "admin-test"} {
 		request := httptest.NewRequest(http.MethodGet, "/api/status", nil)
