@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-项目处于阶段 0：需求与开发流程基线。已创建 `agent.md`、`README.md`、本文及 GHCR 镜像发布 workflow；尚无 Go 服务、前端、Dockerfile 或可运行转换功能。
+已完成阶段 1 第 1 个功能点：Go 基础服务、配置存储及访问控制，并提前补齐 Dockerfile 和镜像构建流程。尚无 YAML 来源读取、订阅生成或管理前端，当前不能生成 Mihomo 订阅。
 
 目标远程仓库：`https://github.com/b1xcy/clash_ACL.git`。
 
@@ -38,15 +38,26 @@
 
 ## 本次交付与验证范围
 
-- `agent.md`：改为只 commit、不 push；删除临时代理的迁移要求；补充强制刷新参数和 GHCR 镜像发布流程。
-- `README.md`：同步更新功能范围、下载行为、镜像发布说明与本地提交约定。
-- `.github/workflows/docker-image.yml`：在 `main`、`v*` 标签或对应 ref 手动触发时构建并发布 GHCR 镜像；缺少 Dockerfile 时提示并跳过。
-- 强制刷新、自建出口与运行时行为仍为规划，尚未实现。无 Dockerfile，未构建或发布镜像；本次不执行 Git push 或远程 workflow。
-- 已通过文档审查、`git diff --check` 与 `go run github.com/rhysd/actionlint/cmd/actionlint@latest -shellcheck= .github/workflows/docker-image.yml`（exit code 0）。未执行服务测试、性能压测或实际镜像构建。
+- 初始化 Go 模块，不引入第三方运行依赖。
+- `main.go`：读取环境变量，首次初始化私有配置目录，监听 HTTP 并响应终止信号。
+- `config.go`：定义来源、自建节点、重命名、分组和域名策略配置，校验基本字段并原子保存 JSON；协议扩展字段及数字精度保留。
+- `server.go`：公共 `/healthz`，管理令牌保护的 GET/PUT `/api/config`，独立下载令牌保护的 `/download`。下载生成尚未实现，返回 HTTP 501，不提供假的订阅内容。
+- `server_test.go`：验证令牌隔离、配置持久化与重新读取、嵌套协议字段保留、拒绝无效更新不损坏旧配置、并发读写。
+- `Dockerfile`：Go 1.25 多阶段构建，执行测试并生成静态二进制；scratch 运行镜像使用非 root 用户及 `/data` 数据卷，附带 HTTPS 根证书。
+- `.gitignore` 与 `.dockerignore`：排除环境凭据、运行数据和本地二进制；镜像构建上下文仅允许 Go 源码及模块文件。
+- workflow 删除缺少 Dockerfile 时跳过的临时逻辑，直接构建并发布；README 提供当前 API 与本地 Docker 运行步骤。
+- 强制刷新、倍率分类、自建固定出口约束及域名策略执行仍未实现。`ai.node_id` 的引用校验不等于已经实现实际流量分流。
+- 已通过 `go test ./...`、`go build ./...`、`go vet ./...`、actionlint 和 `git diff --check`。
+- `docker build -t clash-acl:local .` 已通过，构建内的 Linux Go 测试与编译通过，镜像大小为 8,786,597 bytes，运行用户为 `10001:10001`。
+- 容器验收通过：健康检查、缺少管理令牌时返回 401、下载令牌不能读取管理配置、配置写入及重启后的数据卷持久化、下载返回 501。启动时缺少令牌或两令牌相同均以 exit code 1 退出。
+- 首次容器验收发现空数据目录 COPY 后的所有权不正确，已使用显式 chown 修正并重新构建验收通过。测试容器与专用测试卷已清理；本地保留 `clash-acl:local` 镜像。
+- 本次只做本地 commit，不执行 Git push、远程 workflow 或 GHCR 发布。
 
 ## 下一步
 
-实施阶段 1 的第 1 个功能点：初始化 Go 项目、定义最小配置结构、实现配置存储及基础 HTTP 服务与访问控制。先完成可构建的最小后端，再处理 YAML 来源读取与缓存。
+实施阶段 1 的第 2 个功能点：YAML 来源读取与磁盘缓存，完成刷新状态、并发限制与来源失败后的旧缓存保留。当前 API 接受的来源 URL 仅保存和校验，不会发起订阅拉取。
+
+注意：当前 PUT `/api/config` 是整体替换，认证只支持 Bearer 请求头；未来订阅客户端的下载认证方式须在下载功能实现时补齐。新增 Go 子目录或依赖时同步调整 Dockerfile 的 COPY 范围和构建上下文允许项。
 
 接手时先阅读 `agent.md` 和 README，检查 Git 状态。后续功能均需更新本文，不得把计划中的功能记成已实现。
 

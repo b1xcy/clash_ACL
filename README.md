@@ -1,8 +1,59 @@
 # clash_ACL
 
-面向 Mihomo 的自建订阅聚合与策略生成器，计划使用 Go 实现，适合部署在低性能 VPS。
+面向 Mihomo 的自建订阅聚合与策略生成器，使用 Go 实现，适合部署在低性能 VPS。
 
-**当前状态：仅完成项目规划与开发约定，尚无可运行服务。** 以下能力均为待实现目标。
+**当前状态：已实现基础 HTTP 服务、JSON 配置存储和访问控制，已补齐 Dockerfile。** YAML 订阅读取、聚合、倍率分类、AI 分流生成与管理页面仍待实现，目前不能生成 Mihomo 订阅。
+
+## 启动基础服务
+
+创建本地 `.env` 文件，设置两个不同的令牌；该文件已从 Git 和 Docker 构建上下文排除：
+
+```dotenv
+CLASH_ACL_ADMIN_TOKEN=replace-with-your-admin-token
+CLASH_ACL_DOWNLOAD_TOKEN=replace-with-a-different-download-token
+```
+
+从项目根目录构建并启动：
+
+```bash
+docker build -t clash-acl:local .
+docker run -d --name clash-acl --restart unless-stopped \
+  -p 127.0.0.1:8080:8080 \
+  --env-file .env \
+  -v clash-acl-data:/data \
+  clash-acl:local
+curl http://127.0.0.1:8080/healthz
+```
+
+Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/config.json`，容器重建后保留配置。上面的端口仅绑定本机，远程管理可通过 HTTPS 反向代理访问。
+
+本地开发需要 Go 1.25.5 或更新版本。设置上述两个环境变量后执行 `go run .`；默认监听 `127.0.0.1:8080`，配置保存于 `data/config.json`。
+
+| 环境变量 | 用途 | 默认值 |
+| --- | --- | --- |
+| `CLASH_ACL_ADMIN_TOKEN` | 配置管理令牌 | 必填 |
+| `CLASH_ACL_DOWNLOAD_TOKEN` | 独立下载令牌 | 必填，不能与管理令牌相同 |
+| `CLASH_ACL_LISTEN_ADDR` | HTTP 监听地址 | 本地 `127.0.0.1:8080`；镜像内 `0.0.0.0:8080` |
+| `CLASH_ACL_DATA_DIR` | 私有配置目录 | 本地 `data`；镜像内 `/data` |
+
+## 已实现 API
+
+| 方法与路径 | 认证 | 行为 |
+| --- | --- | --- |
+| `GET /healthz` | 无 | 返回 `ok`，检查服务存活 |
+| `GET /api/config` | 管理令牌 | 返回当前完整配置 |
+| `PUT /api/config` | 管理令牌 | 用 JSON 请求体整体替换并保存配置 |
+| `GET /download` | 下载令牌 | 当前返回 HTTP 501，生成器尚未实现 |
+
+认证使用 `Authorization: Bearer <令牌>`，目前不支持通过 URL 参数传令牌。配置读写接口供管理使用，返回的完整配置可能包含节点凭据；响应不缓存，日志和校验错误不打印来源 URL 或节点秘密。
+
+```bash
+curl -H 'Authorization: Bearer <管理令牌>' http://127.0.0.1:8080/api/config
+```
+
+配置结构包含 `fetch_concurrency`（默认 2）、`sources`、`self_hosted_nodes`、`rename_rules`、`groups`、`rules`、`ai` 与 `base`。自建节点使用 `{ "id": "fixed", "proxy": { ... } }`，`proxy` 保存完整 Mihomo 节点字段；`ai.node_id` 只能引用自建节点 ID。当前只保存这些策略，尚不执行生成。
+
+PUT 是整体替换操作，更新前应先读取完整配置。非法 JSON、重复来源 ID、无效来源 URL 和不存在的 AI 节点引用会返回 HTTP 400，并保留原文件。成功写入使用同目录临时文件与重命名；节点扩展字段和 JSON 数字精度在读写中保留。
 
 ## 要解决的问题
 
@@ -10,7 +61,7 @@
 
 clash_ACL 将来源节点与用户策略分离：选择需要聚合的来源，统一重命名、按倍率分类，再生成一份 Mihomo 配置。AI 服务可以绑定固定自建出口，避免普通代理组切换时改变 AI 出口。
 
-## 计划能力
+## 后续计划能力
 
 | 功能 | 目标行为 |
 | --- | --- |
@@ -84,7 +135,7 @@ flowchart LR
 7. 最小管理页面。
 8. 客户端迁移验证、Docker 镜像构建与 VPS 部署。
 
-随后改进可视化编辑体验，再按需要扩展 Provider 输出或其他输入格式。部署与运行命令将在对应功能实现后补充。
+第 1 项基础服务及 Docker 部署已完成，下一步实现 YAML 来源读取与缓存。随后改进可视化编辑体验，再按需要扩展 Provider 输出或其他输入格式。
 
 ## Docker 镜像发布
 
@@ -94,7 +145,9 @@ flowchart LR
 - 支持在 `main` 或 `v*` 标签上手动触发，使用 `GITHUB_TOKEN` 登录 GHCR。
 - 初始构建平台为 `linux/amd64`；VPS 通过 Docker 拉取运行，配置与缓存使用数据卷持久化。
 
-**当前没有 Go 服务和 Dockerfile，workflow 会提示并跳过镜像构建；尚未发布可运行镜像。** 在服务实现阶段补齐 Dockerfile。agent 只做本地 commit，workflow 需由用户推送到 GitHub 后生效。
+Dockerfile 采用多阶段构建，构建阶段运行 Go 测试并编译静态程序；运行阶段使用 scratch，只包含程序、HTTPS 根证书和数据目录。构建上下文仅包含 Go 源文件及模块定义，不打包 `.env` 或运行数据。
+
+agent 只做本地 commit，尚未向 GHCR 发布镜像。用户推送后，workflow 将构建并发布基础服务镜像；发布完成后，上面的运行命令可以把 `clash-acl:local` 替换为 `ghcr.io/b1xcy/clash_acl:latest`。
 
 ## 开发与交接
 

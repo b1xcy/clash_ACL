@@ -18,16 +18,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Report missing Dockerfile
-        if: hashFiles('Dockerfile') == ''
-        run: echo '::notice::Dockerfile is not available yet; image publication is skipped.'
-
       - name: Set up Buildx
-        if: hashFiles('Dockerfile') != ''
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        if: hashFiles('Dockerfile') != ''
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -35,7 +29,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Image metadata
-        if: hashFiles('Dockerfile') != ''
         id: meta
         uses: docker/metadata-action@v6
         with:
@@ -47,7 +40,6 @@ jobs:
             type=sha
 
       - name: Build and publish
-        if: hashFiles('Dockerfile') != ''
         uses: docker/build-push-action@v7
         with:
           context: .

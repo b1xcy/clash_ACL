@@ -89,7 +89,7 @@
 - workflow 位于 `.github/workflows/docker-image.yml`；用户推送到 `main`、推送 `v*` 标签或在这些 ref 手动触发时构建并发布。
 - 镜像地址为 `ghcr.io/b1xcy/clash_acl`，`main` 发布 `latest`，版本标签发布同名镜像标签，并保留提交 SHA 标签。
 - 使用 GitHub 提供的 `GITHUB_TOKEN` 与 `packages: write` 权限登录 GHCR，不要求额外 Docker Hub 账号或 PAT。
-- 当前仅有文档，没有 Go 服务或 Dockerfile；workflow 暂时检测 Dockerfile 并跳过缺少构建输入的发布。服务实现后提供多阶段 Dockerfile，只把程序和必要运行文件放入镜像，配置与凭据使用数据卷或运行时注入。
+- 已提供基础 Go 服务和多阶段 Dockerfile，workflow 直接执行镜像构建与发布。构建阶段运行 Go 测试；运行镜像只包含程序、HTTPS 根证书和数据目录，配置与凭据使用数据卷或运行时注入。
 - 首版 workflow 构建 `linux/amd64` 镜像，VPS 架构不匹配时再补充对应平台。
 - agent 只执行本地 commit，不执行 Git push 或远程触发；用户自行推送后，workflow 发布镜像。Git push 与 workflow 向 GHCR 发布镜像是不同操作。
 
