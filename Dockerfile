@@ -3,6 +3,7 @@ WORKDIR /src
 ENV CGO_ENABLED=0
 COPY go.mod ./
 COPY *.go ./
+COPY web ./web
 RUN go test ./... && go build -trimpath -ldflags="-s -w" -o /out/clash-acl .
 RUN mkdir -p /runtime/data && chmod 700 /runtime/data && chown 10001:10001 /runtime/data
 

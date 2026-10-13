@@ -11,6 +11,32 @@ import (
 func newHandler(configPath, adminToken, downloadToken string) http.Handler {
 	mux := http.NewServeMux()
 	var configMu sync.RWMutex
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Write(indexHTML)
+	})
+	mux.Handle("GET /api/status", authorize(adminToken, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		configMu.RLock()
+		defer configMu.RUnlock()
+		config, err := readConfig(configPath)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read configuration"})
+			return
+		}
+		enabled := 0
+		sources := make([]map[string]any, 0, len(config.Sources))
+		for _, source := range config.Sources {
+			if source.Enabled {
+				enabled++
+			}
+			sources = append(sources, map[string]any{"id": source.ID, "name": source.Name, "enabled": source.Enabled})
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"features": featureProgress(), "sources": sources,
+			"counts": map[string]int{"sources": len(config.Sources), "enabled": enabled, "self_hosted": len(config.SelfHostedNodes), "groups": len(config.Groups)},
+		})
+	})))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte("ok\n"))

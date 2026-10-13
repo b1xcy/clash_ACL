@@ -2,3 +2,5 @@
 !Dockerfile
 !go.mod
 !*.go
+!web/
+!web/index.html
