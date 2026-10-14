@@ -80,12 +80,15 @@ func aggregateNodes(input []AggregatedNode) ([]AggregatedNode, int, error) {
 	return nodes, len(input) - len(nodes), nil
 }
 
-func resolveNodeNames(nodes []AggregatedNode) {
+func resolveNodeNames(nodes []AggregatedNode, groupNames ...string) {
 	reserved := map[string]bool{"DIRECT": true, "REJECT": true, "REJECT-DROP": true, "PASS": true, "COMPATIBLE": true, "GLOBAL": true}
+	used := map[string]bool{"DIRECT": true, "REJECT": true, "REJECT-DROP": true, "PASS": true, "COMPATIBLE": true, "GLOBAL": true}
+	for _, name := range groupNames {
+		reserved[name], used[name] = true, true
+	}
 	for _, node := range nodes {
 		reserved[node.Name] = true
 	}
-	used := map[string]bool{"DIRECT": true, "REJECT": true, "REJECT-DROP": true, "PASS": true, "COMPATIBLE": true, "GLOBAL": true}
 	for index := range nodes {
 		node := &nodes[index]
 		name := node.Name

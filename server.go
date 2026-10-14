@@ -295,6 +295,28 @@ func newHandler(configPath string) http.Handler {
 	mux.HandleFunc("GET /api/rules/presets", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"presets": rulePresets})
 	})
+	mux.HandleFunc("POST /api/generate/preview", func(w http.ResponseWriter, r *http.Request) {
+		reader := http.MaxBytesReader(w, r.Body, maxSubscriptionSize)
+		defer reader.Close()
+		request, err := decodeGenerationRequest(reader)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		configMu.RLock()
+		config, err := readConfig(configPath)
+		configMu.RUnlock()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read configuration"})
+			return
+		}
+		_, preview, err := generateConfig(r.Context(), sourceManager, config, request, false)
+		if err != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, preview)
+	})
 	mux.HandleFunc("POST /api/rules/preview", func(w http.ResponseWriter, r *http.Request) {
 		reader := http.MaxBytesReader(w, r.Body, maxSubscriptionSize)
 		defer reader.Close()
