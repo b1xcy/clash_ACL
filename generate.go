@@ -177,7 +177,7 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 	if err != nil {
 		return nil, preview, err
 	}
-	names := append([]string{mainGroup, lowGroup, standardGroup, highGroup, aiGroup}, templateNames...)
+	names := append([]string{mainGroup, lowGroup, standardGroup, highGroup, aiGroup, aiChainGroup}, templateNames...)
 	for _, group := range customGroups {
 		name, _ := group["name"].(string)
 		names = append(names, name)
@@ -189,36 +189,47 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 	}
 	aiNode := ""
 	if ai.NodeID != "" {
+		id := ai.NodeID
 		for _, self := range config.SelfHostedNodes {
 			if self.ID != ai.NodeID {
 				continue
 			}
-			if _, exists := self.Proxy["dialer-proxy"]; exists {
-				return nil, preview, errors.New("AI fixed node cannot use another proxy as its dialer")
-			}
-			server, _ := self.Proxy["server"].(string)
-			port, portErr := strconv.Atoi(fmt.Sprint(self.Proxy["port"]))
-			kind, _ := self.Proxy["type"].(string)
-			if server == "" || portErr != nil || port < 1 || port > 65535 || containsString([]string{"direct", "reject", "dns", "compatible"}, strings.ToLower(kind)) {
-				return nil, preview, errors.New("AI fixed node requires a proxy server and valid port")
-			}
-			id, err := nodeIdentity(self.Proxy)
+			var err error
+			id, err = nodeIdentity(self.Proxy)
 			if err != nil {
 				return nil, preview, err
 			}
-			for _, node := range nodes {
-				if node.ID == id {
-					aiNode = node.Name
-				}
+			break
+		}
+		for _, node := range nodes {
+			if node.ID != id {
+				continue
 			}
+			if dialer, exists := node.Proxy["dialer-proxy"]; exists && (!ai.Chain || dialer != aiChainGroup) {
+				return nil, preview, errors.New("AI node has an existing dialer-proxy; configure its chain using the AI chain option")
+			}
+			server, _ := node.Proxy["server"].(string)
+			port, portErr := strconv.Atoi(fmt.Sprint(node.Proxy["port"]))
+			kind := node.Type
+			if server == "" || portErr != nil || port < 1 || port > 65535 || containsString([]string{"direct", "reject", "dns", "compatible"}, strings.ToLower(kind)) {
+				return nil, preview, errors.New("AI fixed node requires a proxy server and valid port")
+			}
+			aiNode = node.Name
+			if ai.Chain {
+				node.Proxy["dialer-proxy"] = aiChainGroup
+			}
+			break
 		}
 		if aiNode == "" {
-			return nil, preview, errors.New("AI node_id must reference an available self-hosted node")
+			return nil, preview, errors.New("selected AI node is not available; import it again or select another node")
 		}
 	} else if len(ai.Domains) != 0 {
-		return nil, preview, errors.New("AI domains require a fixed self-hosted node")
+		return nil, preview, errors.New("AI domains require a selected fixed node")
 	}
-	groups, err := buildGroups(ruleRequest.Preset, customGroups, nodes, aiNode, libraries...)
+	if ai.Chain && aiNode == "" {
+		return nil, preview, errors.New("AI chain requires a selected exit node")
+	}
+	groups, err := buildGroups(ruleRequest.Preset, customGroups, nodes, aiNode, ai.Chain, libraries...)
 	if err != nil {
 		return nil, preview, err
 	}

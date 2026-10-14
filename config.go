@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Config struct {
@@ -45,6 +46,7 @@ type RenameRule struct {
 type AIPolicy struct {
 	NodeID  string   `json:"node_id"`
 	Domains []string `json:"domains"`
+	Chain   bool     `json:"chain,omitempty"`
 }
 
 func defaultConfig() Config {
@@ -112,8 +114,11 @@ func validateConfig(config Config) error {
 		}
 		nodeIDs[node.ID] = true
 	}
-	if config.AI.NodeID != "" && !nodeIDs[config.AI.NodeID] {
-		return errors.New("AI node_id must reference a self-hosted node")
+	if config.AI.NodeID != "" && !nodeIDs[config.AI.NodeID] && !(strings.HasPrefix(config.AI.NodeID, "node-") && validSnapshotID(strings.TrimPrefix(config.AI.NodeID, "node-"))) {
+		return errors.New("AI node_id must reference a saved node or a valid imported node ID")
+	}
+	if config.AI.Chain && config.AI.NodeID == "" {
+		return errors.New("AI chain requires a selected exit node")
 	}
 	return nil
 }

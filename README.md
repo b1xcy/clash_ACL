@@ -75,7 +75,7 @@ curl --get http://127.0.0.1:8080/api/subscriptions \
 接口先返回来源状态，使用相同 url 参数且省略 refresh 轮询，读取成功后响应的 previews 提供节点名称与类型。参数错误返回 400。/download 沿用同一组地址参数，也可使用生成接口返回的快照 ID。
 配置读写接口保留，用于可选的服务器默认设置；前端读取订阅不依赖先保存配置。JSON 响应不缓存，日志和校验错误不打印完整来源地址或节点秘密。
 
-配置结构包含 `fetch_concurrency`（默认 2）、`sources`、`self_hosted_nodes`、`rename_rules`、`groups`、`rules`、`ai` 与 `base`。自建节点使用 `{ "id": "fixed", "proxy": { ... } }`，`proxy` 保存完整 Mihomo 节点字段；`ai.node_id` 只能引用自建节点 ID。生成器执行这些策略，base 中的客户端设置保留，mode 固定为 rule，proxies/proxy-groups/rules 由生成器统一输出。
+配置结构包含 `fetch_concurrency`（默认 2）、`sources`、`self_hosted_nodes`、`rename_rules`、`groups`、`rules`、`ai` 与 `base`。自建节点使用 `{ "id": "fixed", "proxy": { ... } }`，`proxy` 保存完整 Mihomo 节点字段；`ai.node_id` 可引用保存的自建 ID，或 URI/订阅预览返回的稳定 node-... ID。生成器执行这些策略，base 中的客户端设置保留，mode 固定为 rule，proxies/proxy-groups/rules 由生成器统一输出。
 
 ## 生成与快照下载
 
@@ -228,7 +228,15 @@ clash_ACL 将来源节点与用户策略分离：选择需要聚合的来源，�
 
 通过域名及域名规则集识别 AI 服务，不使用专用应用、进程名或进程路径规则。AI 中转站和其他服务的域名可以单独配置目标策略，不根据应用名称猜测路由。
 
-AI 专用策略默认绑定一个自建节点。需要协议备用时，只允许加入已经验证出口 IP 相同的自建节点。专用策略不包含机场节点、普通节点选择组或 DIRECT；自建出口不可用时请求失败。
+AI 出口可选择当前页面已确认的协议链接节点、已读取的订阅节点，或保存的自建节点，不限定协议；直接链接支持 SS、TUIC、VLESS、VMess、Trojan、Hysteria2/hy2 与 AnyTLS，可混合导入。确认直接节点或完成来源读取后，AI 下拉列表自动更新；用稳定连接 ID 绑定，改名和去重不改变选择。保存导入节点绑定后，重新打开页面须重新提供其链接/来源；缺失节点会标明不可用并拒绝生成，不会悄悄改选其他出口。
+
+AI 专用策略只包含用户指定的一个出口节点，不自动加入普通选择组、其他节点或 DIRECT。指定出口不可用时请求失败，不自动改走其他出口。暂不生成同出口协议备用。
+
+勾选「AI 链式代理 → 通过前置节点连接 AI 出口」，生成器为出口节点写入 dialer-proxy，并建立「🔗 AI 前置选择」手动组。该组列出其他有效代理节点，排除出口自身与 DIRECT，默认按低/标准/高倍率顺序排列；在 Clash Verge 中选择前置节点即可切换入口。最终链路为：本机 → 前置节点 → 指定 VPS → AI 平台，AI 固定组仍只绑定 VPS，所有 AI 和 ACL 规则正常保留。至少需要一个额外代理节点；已有不兼容 dialer-proxy、未知引用、循环或空前置组会报错。
+
+API 中设置 ai.chain=true；节点、来源及链式设置随生成快照持久化，规则更新重建后仍保留。使用 Mihomo 的 [dialer-proxy](https://wiki.metacubex.one/config/proxies/dialer-proxy/) 实现，不使用已弃用的 relay 策略，也不修改用户正在使用的 Clash Verge 配置。静态校验不证明实际速度、节点连通性或最终出口 IP。
+
+TUIC、Hysteria2 等通过 UDP 建立连接的出口，需要选择支持 UDP 转发的前置节点；节点原有的 UDP、TLS 和传输参数不会被链式选项自动改写。
 
 AI 规则优先于可能覆盖相同域名的通用微软、Google、国外媒体等规则。该约束适用于进入 Mihomo 且以 rule 模式处理的流量；生成器无法约束绕过代理或被客户端全局模式覆盖的请求。
 

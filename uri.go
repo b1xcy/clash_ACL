@@ -12,12 +12,13 @@ import (
 )
 
 type URILine struct {
-	Line  int            `json:"line"`
-	ID    string         `json:"id,omitempty"`
-	Name  string         `json:"name,omitempty"`
-	Type  string         `json:"type,omitempty"`
-	Error string         `json:"error,omitempty"`
-	Proxy map[string]any `json:"-"`
+	Line   int            `json:"line"`
+	ID     string         `json:"id,omitempty"`
+	NodeID string         `json:"node_id,omitempty"`
+	Name   string         `json:"name,omitempty"`
+	Type   string         `json:"type,omitempty"`
+	Error  string         `json:"error,omitempty"`
+	Proxy  map[string]any `json:"-"`
 }
 
 func parseURILines(text string) []URILine {
@@ -33,6 +34,7 @@ func parseURILines(text string) []URILine {
 			line.Error = err.Error()
 		} else {
 			line.ID = "uri-" + sourceKey(Source{URL: raw})
+			line.NodeID, _ = nodeIdentity(proxy)
 			line.Proxy = proxy
 			line.Name, _ = proxy["name"].(string)
 			line.Type, _ = proxy["type"].(string)

@@ -204,7 +204,9 @@ func TestGeneratedConfigurationsWithMihomo(t *testing.T) {
 	for _, preset := range rulePresets {
 		t.Run(preset.ID, func(t *testing.T) {
 			config := generationFixture()
-			config.AI = AIPolicy{NodeID: "unknown", Domains: []string{"relay.example.invalid"}}
+			config.SelfHostedNodes[1].Proxy["type"] = "anytls"
+			delete(config.SelfHostedNodes[1].Proxy, "cipher")
+			config.AI = AIPolicy{NodeID: "unknown", Chain: true, Domains: []string{"relay.example.invalid"}}
 			output, _, err := generateConfig(context.Background(), newSourceManager(t.TempDir()), config, GenerationRequest{Rules: RuleRequest{Preset: preset.ID, SkipUnsupported: true}}, false)
 			if err != nil {
 				t.Fatal(err)

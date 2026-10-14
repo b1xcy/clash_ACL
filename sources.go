@@ -28,6 +28,7 @@ type SourceCache struct {
 }
 
 type NodePreview struct {
+	ID   string `json:"id"`
 	Name string `json:"name"`
 	Type string `json:"type"`
 }
@@ -103,7 +104,8 @@ func previewNodes(proxies []map[string]any) []NodePreview {
 	for _, proxy := range proxies {
 		name, _ := proxy["name"].(string)
 		kind, _ := proxy["type"].(string)
-		preview = append(preview, NodePreview{Name: name, Type: kind})
+		id, _ := nodeIdentity(proxy)
+		preview = append(preview, NodePreview{ID: id, Name: name, Type: kind})
 	}
 	return preview
 }

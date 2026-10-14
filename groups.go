@@ -16,6 +16,7 @@ const (
 	standardGroup = "⚖️ 标准倍率"
 	highGroup     = "💎 高倍率"
 	aiGroup       = "🤖 AI 固定出口"
+	aiChainGroup  = "🔗 AI 前置选择"
 )
 
 func templateGroups(preset string, nodes []AggregatedNode, libraries ...fs.FS) ([]map[string]any, error) {
@@ -143,7 +144,7 @@ func userGroups(input []map[string]any, nodes []AggregatedNode) ([]map[string]an
 			group[key] = value
 		}
 		name, _ := group["name"].(string)
-		if !validPolicyName(name) || seen[name] || name == lowGroup || name == standardGroup || name == highGroup || name == aiGroup {
+		if !validPolicyName(name) || seen[name] || name == lowGroup || name == standardGroup || name == highGroup || name == aiGroup || name == aiChainGroup {
 			return nil, errors.New("custom group names must be unique and cannot override rate or AI groups")
 		}
 		seen[name] = true
@@ -232,7 +233,7 @@ func validPolicyName(name string) bool {
 	return strings.TrimSpace(name) != "" && !strings.ContainsAny(name, ",\r\n") && !containsString([]string{"DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLOBAL"}, name)
 }
 
-func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode, aiNode string, libraries ...fs.FS) ([]map[string]any, error) {
+func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode, aiNode string, chain bool, libraries ...fs.FS) ([]map[string]any, error) {
 	groups := []map[string]any{}
 	rateMembers := map[string][]string{"low": {}, "standard": {}, "high": {}}
 	for _, node := range nodes {
@@ -253,6 +254,20 @@ func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode,
 	}
 	groups = append(groups, map[string]any{"name": mainGroup, "type": "select", "proxies": mainMembers})
 	if aiNode != "" {
+		if chain {
+			members := []string{}
+			for _, rate := range []string{"low", "standard", "high"} {
+				for _, node := range nodes {
+					if node.Name != aiNode && node.RateGroup == rate && !containsString([]string{"direct", "reject", "dns", "compatible"}, strings.ToLower(node.Type)) {
+						members = append(members, node.Name)
+					}
+				}
+			}
+			if len(members) == 0 {
+				return nil, errors.New("AI chain requires another imported or saved proxy node as its entry")
+			}
+			groups = append(groups, map[string]any{"name": aiChainGroup, "type": "select", "proxies": members})
+		}
 		groups = append(groups, map[string]any{"name": aiGroup, "type": "select", "proxies": []string{aiNode}})
 	}
 	users, err := userGroups(custom, nodes)
