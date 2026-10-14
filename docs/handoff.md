@@ -55,3 +55,7 @@
 - Release 三个附件：clash-acl-v1.0-linux-amd64.tar.gz、clash-acl-v1.0-source.zip、SHA256SUMS。已实际下载并核对 SHA256SUMS；源码包含完整标签源码，包括 Go/Vue/规则/依赖锁和 workflow。GitHub 包 API 因当前本机凭据缺少包读取范围返回 403，镜像发布／摘要通过 Actions 的 GITHUB_TOKEN 验证；没有更改访问权限或打印凭据。
 
 历史见 [history.md](history.md)，API 和生成约束见 [API.md](API.md)。
+
+## v1.1 发布
+
+- 用户已明确授权创建 v1.1 并 push 发布；版本包含 HTTP/SOCKS 按来源过滤与范围修正。Release workflow 说明已增加来源过滤功能，沿用完整源码、Linux amd64 可执行包、SHA256SUMS 和 GHCR 版本镜像发布流程。
