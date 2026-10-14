@@ -2,7 +2,7 @@
 
 面向 Mihomo 的自建订阅聚合与策略生成器，使用 Go 实现，适合部署在低性能 VPS。
 
-**当前状态：已实现基础服务、订阅转换表单、来源管理、远程 YAML 读取、后台刷新、磁盘缓存、节点预览、聚合去重预览与转换设置保存。** 已支持多行协议链接解析、逐行预览与当前页面确认；倍率分类、AI 分流生成仍待实现，目前不能生成完整 Mihomo 订阅。
+**当前状态：已实现基础服务、订阅转换表单、来源管理、远程 YAML 读取、后台刷新、磁盘缓存、节点预览、聚合去重、本地规则导入/排序预览与转换设置保存。** 已支持多行协议链接解析、逐行预览与当前页面确认；倍率分类、AI 分流生成仍待实现，目前不能生成完整 Mihomo 订阅。
 
 打开服务根地址（本地为 `http://127.0.0.1:8080/`），使用类似 ACL4SSR 的订阅转换表单：输入多行订阅、选择 Mihomo 客户端、设置聚合，并在进阶模式编辑重命名、AI 自建出口和代理组配置。页面不展示开发进度。静态 HTML 内嵌在 Go 程序中，随 Docker 镜像交付，不依赖 CDN 或单独前端服务。打开即可使用，不需要登录或输入访问令牌。
 
@@ -50,6 +50,8 @@ Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/co
 | `POST /api/yaml/preview` | 解析请求体中的 YAML，仅预览，不保存 |
 | `POST /api/uri/preview` | 解析多行协议链接，返回原行号、名称、协议、ID 与脱敏错误，不保存 |
 | `POST /api/aggregate/preview` | 合并请求中的 YAML 缓存与有效直接链接，按连接参数去重并预览 |
+| `GET /api/rules/presets` | 返回内置规则方案名称与 ID |
+| `POST /api/rules/preview` | 读取本地 INI/规则文件，输出自定义优先的完整规则顺序 |
 | `GET /download?url=...` | 接受订阅地址参数；生成器尚未实现，有效请求返回 HTTP 501 |
 
 所有接口均无需认证。订阅地址通过重复的 url 查询参数传入，地址中的 &、? 等字符由调用端 URL 编码；aggregate=false 只读取第一条，默认启用全部。读取不会修改服务器上保存的来源列表，缓存仍保留在数据目录。
@@ -105,13 +107,29 @@ API 请求为 JSON：urls 数组、aggregate 布尔值和 direct_links 多行文
 
 以上设置尚未接入最终配置生成器；生成器实现后按保存的设置处理节点和路由。
 
-## 外部规则导入与优先级（待实现）
+## 本地规则导入与优先级
 
-已检查 ACL4SSR 与 sub.v1.mk 的线上页面脚本。两者均将「远程配置」地址作为 config 参数交给 subconverter；模板 INI 中的 ruleset 指定策略组与外部规则地址，后端读取规则列表并按顺序生成。[subconverter 外部配置说明](https://github.com/tindy2013/subconverter/blob/master/README-cn.md#外部配置)、[ACL4SSR 在线模板](https://github.com/ACL4SSR/ACL4SSR/blob/master/Clash/config/ACL4SSR_Online.ini)。
+ACL4SSR 规则直接包含在项目和镜像中，前端选择默认版、精简版、完整无自动测速版或只使用自定义规则，不需要填写远程地址。三个模板和 32 个规则文件位于 rules/ACL4SSR，Go embed 随二进制发布，规则读取无需联网。
 
-本项目按用户要求生成：**自定义规则（包含 AI 固定出口） → 外部导入规则 → 最终兜底**。Mihomo 按从上到下的顺序匹配，这使自定义规则优先于外部同域名或通用分类规则。[Mihomo 规则优先级](https://wiki.metacubex.one/config/rules/?h=rule+providers)。
+INI 保持 ACL4SSR 的 ruleset=策略组,规则文件 与 []GEOIP/[]FINAL 写法；引用改为相对本地路径。例如：
 
-后续提供远程配置 URL、自定义规则编辑与外部策略目标映射。外部模板的覆盖开关不能删除自定义规则，也不能覆盖 AI 绑定或本项目的分组。外部策略必须绑定到有效目标；外部 MATCH/FINAL 单独归入最后兜底，自定义兜底优先。当前规则导入及顺序生成尚未实现。
+```ini
+[custom]
+ruleset=🎯 全球直连,../LocalAreaNetwork.list
+ruleset=🚀 节点选择,../ProxyLite.list
+ruleset=🐟 漏网之鱼,[]FINAL
+```
+
+生成顺序为 **自定义规则 → 本地导入规则 → 最后一条兜底**，各层保留顺序，完全相同的重复规则保留第一次。外部模板的覆盖开关不会删除自定义规则。自定义 MATCH 优先于模板 FINAL，单独填写的兜底目标优先于两者。[Mihomo 匹配顺序](https://wiki.metacubex.one/config/rules/?h=rule+providers)。
+
+模板中声明的分组名可以用于规则预览；可以用可选 JSON 映射改为自己的节点/分组，未知目标会报错。同名自定义组的实际生成优先级将在组生成器接入时验证，目前不产生完整分组配置。
+
+Mihomo 不支持的外部 URL-REGEX/USER-AGENT 可以通过兼容选项跳过，页面明确列出数量、类型和位置；默认开启。自定义不支持的规则始终报错，不会静默跳过。不支持 RULE-SET/SUB-RULE 的依赖展开、远程地址、本地任意路径或执行外部脚本。
+
+规则输入仅用于本次请求，不随「保存转换设置」持久化。此处已实现完整规则序列的导入/预览；自动 AI 规则、代理组生成与最终订阅下载尚未接入。
+
+更新内置规则需编辑或重新导入仓库文件并构建镜像。来源快照和模板修改记录见 rules/ACL4SSR/SOURCE.md；并非运行时在线更新。[ACL4SSR 原模板](https://github.com/ACL4SSR/ACL4SSR/blob/master/Clash/config/ACL4SSR_Online.ini)。
+
 
 ## 要解决的问题
 
@@ -204,7 +222,7 @@ flowchart LR
 7. 最小管理页面。
 8. 客户端迁移验证、Docker 镜像构建与 VPS 部署。
 
-基础服务、Docker 部署、来源 YAML 读取与缓存、多行协议链接解析与确认、转换表单及设置保存已完成。节点身份与聚合去重预览已完成，下一步实现倍率与重命名，随后完成分组、规则和配置生成。
+基础服务、Docker 部署、来源 YAML 读取与缓存、多行协议链接解析与确认、转换表单及设置保存已完成。节点身份与聚合去重预览已完成，本地规则导入与排序预览也已完成，下一步实现倍率与重命名，随后接入分组、AI 规则和完整配置生成。
 
 ## Docker 镜像发布
 
@@ -226,3 +244,5 @@ agent 只做本地 commit，尚未向 GHCR 发布镜像。用户推送后，work
 - Python 辅助操作一律使用 uv，详细规则见 agent.md。
 
 仓库：[b1xcy/clash_ACL](https://github.com/b1xcy/clash_ACL)。
+
+每次代码改动完成后必须执行 `docker build -t clash-acl:local .`，验证本次代码与 HTML 随镜像交付，再做本地提交。

@@ -5,3 +5,5 @@
 !*.go
 !web/
 !web/index.html
+!rules/
+!rules/**

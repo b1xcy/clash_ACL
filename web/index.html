@@ -25,6 +25,10 @@
 <div class="row"><label for="aiNode">AI 固定出口</label><div><select class="field field-small" id="aiNode" disabled><option value="">未指定</option></select><div class="hint">只能选择自建节点。已保存 <span id="countSelf">0</span> 个自建节点。</div></div></div>
 <div class="row"><label for="aiDomains">AI 服务域名</label><div><textarea class="field" id="aiDomains" rows="3" spellcheck="false" placeholder="openai.com&#10;chatgpt.com&#10;claude.ai"></textarea><div class="hint">每行一个域名。中转站等其他服务按需要单独添加。</div></div></div>
 <div class="row"><label for="groupSettings">代理组配置</label><div><textarea class="field code" id="groupSettings" spellcheck="false" placeholder='[{"name":"节点选择","type":"select","proxies":[]}]'>[]</textarea><div class="hint">JSON 数组，每个代理组需要 name 和 type；可编辑成员及其他分组参数。</div></div></div>
+<div class="row"><label for="rulePreset">内置规则方案</label><div><select class="field" id="rulePreset" disabled><option>正在读取本地方案…</option></select><div class="hint">ACL4SSR 模板与规则已包含在镜像中，保持 ruleset 写法，运行时读取本地文件。</div></div></div>
+<div class="row"><label for="customRules">自定义规则</label><div><textarea class="field code" id="customRules" spellcheck="false" placeholder="DOMAIN-SUFFIX,example.com,DIRECT"></textarea><div class="hint">每行一条完整 Mihomo 规则。规则输入用于本次请求，不随「保存转换设置」持久化。AI 固定出口生成仍待接入。</div></div></div>
+<div class="row"><label for="policyMap">模板策略映射（可选）</label><div><textarea class="field code" id="policyMap" spellcheck="false" placeholder='{"🎯 全球直连":"DIRECT","🛑 全球拦截":"REJECT"}'>{}</textarea><div class="hint">默认使用模板中的分组名称。可用 JSON 将模板策略改为自己的代理组或自建节点名称。</div></div></div>
+<div class="row"><label for="ruleFallback">最终兜底</label><div><input class="field field-small" id="ruleFallback" placeholder="留空使用自定义 MATCH、外部 FINAL 或 DIRECT"><div class="actions input-actions"><button class="secondary" id="previewRules" disabled>预览本地规则</button><label class="inline-check"><input type="checkbox" id="skipUnsupportedRules" checked>跳过外部 URL-REGEX / USER-AGENT</label></div><div class="hint" id="ruleSummary">顺序：自定义规则 → 外部导入规则 → 最终兜底。</div><textarea class="field code" id="ruleResults" readonly hidden aria-label="最终规则顺序"></textarea></div></div>
 <div class="row"><div></div><div class="actions"><button class="secondary" id="saveOptions" disabled>保存转换设置</button><span class="options-note">保存设置不会修改订阅来源或自建节点。</span></div></div>
 </div>
 <div class="divider"></div>
@@ -45,7 +49,7 @@ function message(text, type = '') { byId('message').textContent = text; byId('me
 async function api(path, options = {}) {
   const response = await fetch(path, {...options, cache: 'no-store'});
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || '请求失败，请稍后重试。');
+  if (!response.ok) throw new Error((data.error || '请求失败，请稍后重试。') + (data.unmapped_targets?.length ? '：'+data.unmapped_targets.join('、') : ''));
   return data;
 }
 function renderStatus(data) {
@@ -113,6 +117,7 @@ byId('parseYaml').addEventListener('click', async () => {
 });
 
 let renameRules = [];
+let selfHostedNames = [];
 function setMode(advanced) {
   byId('advancedOptions').hidden = !advanced;
   byId('basicTab').className = 'tab' + (!advanced ? ' active' : ''); byId('advancedTab').className = 'tab' + (advanced ? ' active' : '');
@@ -133,6 +138,7 @@ async function loadConversionOptions() {
   renameRules=structuredClone(options.rename_rules||[]);renderRenameRules();byId('aiDomains').value=(options.ai.domains||[]).join('\n');byId('groupSettings').value=options.groups_json||'[]';
   byId('aiNode').replaceChildren();const empty=document.createElement('option');empty.value='';empty.textContent='未指定';byId('aiNode').append(empty);
   byId('countSelf').textContent=data.self_hosted_nodes.length;
+  selfHostedNames=data.self_hosted_nodes.map(node=>node.name).filter(Boolean);
   data.self_hosted_nodes.forEach((node,index)=>{const option=document.createElement('option');option.value=node.id;option.textContent=node.name||'自建节点 '+(index+1);byId('aiNode').append(option);});
   byId('aiNode').value=options.ai.node_id||'';byId('aiNode').disabled=false;byId('saveOptions').disabled=false;byId('addRename').disabled=false;
 }
@@ -188,7 +194,28 @@ byId('previewAggregate').addEventListener('click', async () => {
   } catch(error) {byId('aggregateSummary').textContent=error.message;}
   finally {byId('previewAggregate').disabled=false;}
 });
-loadConversionOptions().catch(error=>message(error.message,'error'));
+
+byId('previewRules').addEventListener('click',async()=>{
+  byId('previewRules').disabled=true; byId('ruleResults').hidden=true; byId('ruleResults').value='';
+  try {
+    const groups=JSON.parse(byId('groupSettings').value||'[]'); if(!Array.isArray(groups)) throw new Error('代理组需要 JSON 数组。');
+    const policyMap=JSON.parse(byId('policyMap').value||'{}'); if(!policyMap || Array.isArray(policyMap) || typeof policyMap!=='object' || Object.values(policyMap).some(value=>typeof value!=='string')) throw new Error('外部策略映射需要字符串值的 JSON 对象。');
+    const request={preset:byId('rulePreset').value,custom_rules:byId('customRules').value.split(/\r?\n/),policy_map:policyMap,targets:[...selfHostedNames,...groups.map(group=>group.name).filter(Boolean)],fallback:byId('ruleFallback').value.trim(),skip_unsupported:byId('skipUnsupportedRules').checked};
+    const result=await api('/api/rules/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
+    byId('ruleResults').value=result.rules.join('\n'); byId('ruleResults').hidden=false;
+    byId('ruleSummary').textContent='自定义 '+result.custom_count+' 条，外部 '+result.external_count+' 条，兜底 1 条；去除完全重复 '+result.duplicate_count+' 条。'+(result.skipped_rules.length ? '跳过 '+result.skipped_rules.length+' 条：'+result.skipped_rules.map(rule=>'规则集 '+rule.ruleset+' 条目 '+rule.item+' '+rule.type).join('；') : '');
+  }catch(error){byId('ruleSummary').textContent=error.message;}
+  finally{byId('previewRules').disabled=false;}
+});
+
+async function loadRulePresets() {
+ const data=await api('/api/rules/presets'); byId('rulePreset').replaceChildren();
+ data.presets.forEach(preset=>{const option=document.createElement('option');option.value=preset.id;option.textContent=preset.name;byId('rulePreset').append(option);});
+ const none=document.createElement('option');none.value='none';none.textContent='只使用自定义规则';byId('rulePreset').append(none);
+ byId('rulePreset').disabled=false;byId('previewRules').disabled=false;
+}
+Promise.all([loadConversionOptions(),loadRulePresets()]).catch(error=>message(error.message,'error'));
+
 </script>
 </body>
 </html>

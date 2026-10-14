@@ -5,6 +5,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY *.go ./
 COPY web ./web
+COPY rules ./rules
 RUN go test ./... && go build -trimpath -ldflags="-s -w" -o /out/clash-acl .
 RUN mkdir -p /runtime/data && chmod 700 /runtime/data && chown 10001:10001 /runtime/data
 

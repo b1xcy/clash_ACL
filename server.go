@@ -38,7 +38,7 @@ func newHandler(configPath string) http.Handler {
 			sources = append(sources, sourceManager.view(source))
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"capabilities": map[string]bool{"conversion": false, "uri_import": true, "aggregation": true}, "sources": sources,
+			"capabilities": map[string]bool{"conversion": false, "uri_import": true, "aggregation": true, "rule_import": true}, "sources": sources,
 			"counts": map[string]int{"sources": len(config.Sources), "enabled": enabled, "self_hosted": len(config.SelfHostedNodes), "groups": len(config.Groups)},
 		})
 	})
@@ -274,6 +274,35 @@ func newHandler(configPath string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"nodes": nodes, "input_count": len(inputs), "node_count": len(nodes), "duplicate_count": duplicates, "sources": views})
+	})
+	mux.HandleFunc("GET /api/rules/presets", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"presets": rulePresets})
+	})
+	mux.HandleFunc("POST /api/rules/preview", func(w http.ResponseWriter, r *http.Request) {
+		reader := http.MaxBytesReader(w, r.Body, maxSubscriptionSize)
+		defer reader.Close()
+		var request *RuleRequest
+		decoder := json.NewDecoder(reader)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&request); err != nil || request == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "expected a rules request object"})
+			return
+		}
+		var extra any
+		if err := decoder.Decode(&extra); err != io.EOF {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "expected one rules request object"})
+			return
+		}
+		result, err := compileRules(*request)
+		if err != nil {
+			if unmapped, ok := err.(unmappedPolicies); ok {
+				writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error(), "unmapped_targets": unmapped.targets})
+			} else {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
 	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
