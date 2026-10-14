@@ -114,6 +114,16 @@ td, th { padding: 10px 8px; border-bottom: 1px solid #f0f2f7; }
 .warning { color: #d0a05b; font-size: 10px; }
 .empty { text-align: center; color: #a8afbd; padding: 22px; }
 .two-columns { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; }
+.exit-picker { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 17px; }
+.exit-candidates { max-height: 190px; overflow: auto; margin-top: 10px; }
+.exit-source { display: block; margin: 10px 0 5px; }
+.exit-option { display: flex !important; padding: 6px 0; }
+.exit-option span { flex: 1; overflow-wrap: anywhere; }
+.selected-exits { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 6px; }
+.selected-exit { display: flex; gap: 5px; align-items: center; padding: 5px 0; font-size: 12px; }
+.selected-exit > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.selected-exit small { display: block; font-size: 10px; }
+.test-url-setting { margin-top: 18px; }
 .switch-setting { align-self: end; padding-bottom: 3px; }
 .switch-setting small { display: block; margin: 5px 0 0 20px; }
 .chain-preview { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: #faf9ff; border: 1px solid #f0edf9; border-radius: 8px; padding: 17px 10px; margin: 19px 0 12px; }

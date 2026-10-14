@@ -424,7 +424,7 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 			return
 		}
-		preview.RulesVersion = version + "/ai-self-v1"
+		preview.RulesVersion = version + "/ai-self-v2"
 		writeJSON(w, http.StatusOK, preview)
 	})
 	mux.HandleFunc("POST /api/rules/preview", func(w http.ResponseWriter, r *http.Request) {

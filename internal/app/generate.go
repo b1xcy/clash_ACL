@@ -180,7 +180,7 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 	if err != nil {
 		return nil, preview, err
 	}
-	names := append([]string{mainGroup, lowGroup, standardGroup, highGroup, aiGroup, aiChainGroup, selfGroup, telegramGroup}, templateNames...)
+	names := append([]string{mainGroup, lowGroup, standardGroup, highGroup, aiGroup, aiChainGroup, aiAutoGroup, selfGroup, telegramGroup}, templateNames...)
 	for _, group := range customGroups {
 		name, _ := group["name"].(string)
 		names = append(names, name)
@@ -190,11 +190,13 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 	if request.AI != nil {
 		ai = *request.AI
 	}
-	aiNode := ""
-	if ai.NodeID != "" {
-		id := ai.NodeID
+	aiNodes := []string{}
+	testURL := strings.TrimSpace(ai.TestURL)
+	for _, selectedID := range ai.selectedIDs() {
+		id := selectedID
+		aiNode := ""
 		for _, self := range config.SelfHostedNodes {
-			if self.ID != ai.NodeID {
+			if self.ID != selectedID {
 				continue
 			}
 			var err error
@@ -218,6 +220,13 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 				return nil, preview, errors.New("AI fixed node requires a proxy server and valid port")
 			}
 			aiNode = node.Name
+			if len(aiNodes) == 0 && testURL == "" {
+				host := server
+				if strings.Contains(host, ":") {
+					host = "[" + strings.Trim(host, "[]") + "]"
+				}
+				testURL = "https://" + host + "/"
+			}
 			if ai.Chain {
 				node.Proxy["dialer-proxy"] = aiChainGroup
 			}
@@ -226,13 +235,15 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 		if aiNode == "" {
 			return nil, preview, errors.New("selected AI node is not available; import it again or select another node")
 		}
-	} else if len(ai.Domains) != 0 {
+		aiNodes = appendUnique(aiNodes, aiNode)
+	}
+	if len(aiNodes) == 0 && len(ai.Domains) != 0 {
 		return nil, preview, errors.New("AI domains require a selected fixed node")
 	}
-	if ai.Chain && aiNode == "" {
+	if ai.Chain && len(aiNodes) == 0 {
 		return nil, preview, errors.New("AI chain requires a selected exit node")
 	}
-	groups, err := buildGroups(ruleRequest.Preset, customGroups, nodes, aiNode, ai.Chain, libraries...)
+	groups, err := buildGroups(ruleRequest.Preset, customGroups, nodes, aiNodes, ai.Chain, testURL, libraries...)
 	if err != nil {
 		return nil, preview, err
 	}
@@ -264,12 +275,12 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 		}
 		custom = append(custom, values...)
 	}
-	if aiNode != "" || ruleRequest.Preset != "none" {
+	if len(aiNodes) > 0 || ruleRequest.Preset != "none" {
 		target := mainGroup
 		if actualTargets["💬 Ai平台"] {
 			target = "💬 Ai平台"
 		}
-		if aiNode != "" {
+		if len(aiNodes) > 0 {
 			target = aiGroup
 		}
 		data, err := bundledRules.ReadFile("rules/AI/NetCoffee.list")
@@ -280,13 +291,13 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 		if err != nil {
 			return nil, preview, err
 		}
-		if aiNode != "" {
+		if len(aiNodes) > 0 {
 			custom = append(values, custom...)
 		} else {
 			custom = append(custom, values...)
 		}
 	}
-	if aiNode != "" {
+	if len(aiNodes) > 0 {
 		if target, exists := ruleRequest.PolicyMap["💬 Ai平台"]; exists && target != "💬 Ai平台" && target != aiGroup {
 			return nil, preview, errors.New("bound AI template policy cannot be mapped to another exit")
 		}

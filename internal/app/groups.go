@@ -18,6 +18,7 @@ const (
 	highGroup     = "💎 高倍率"
 	aiGroup       = "🤖 AI 固定出口"
 	aiChainGroup  = "🔗 AI 前置选择"
+	aiAutoGroup   = "⚡ AI 前置自动"
 	selfGroup     = "🏠 自建"
 	telegramGroup = "📲 电报消息"
 )
@@ -154,7 +155,7 @@ func userGroups(input []map[string]any, nodes []AggregatedNode) ([]map[string]an
 			group[key] = value
 		}
 		name, _ := group["name"].(string)
-		if !validPolicyName(name) || seen[name] || name == selfGroup || name == lowGroup || name == standardGroup || name == highGroup || name == aiGroup || name == aiChainGroup {
+		if !validPolicyName(name) || seen[name] || name == selfGroup || name == lowGroup || name == standardGroup || name == highGroup || name == aiGroup || name == aiChainGroup || name == aiAutoGroup {
 			return nil, errors.New("custom group names must be unique and cannot override rate or AI groups")
 		}
 		seen[name] = true
@@ -245,7 +246,7 @@ func validPolicyName(name string) bool {
 	return strings.TrimSpace(name) != "" && !strings.ContainsAny(name, ",\r\n") && !containsString([]string{"DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLOBAL"}, name)
 }
 
-func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode, aiNode string, chain bool, libraries ...fs.FS) ([]map[string]any, error) {
+func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode, aiNodes []string, chain bool, testURL string, libraries ...fs.FS) ([]map[string]any, error) {
 	groups := []map[string]any{}
 	rateMembers := map[string][]string{"self": {}, "low": {}, "standard": {}, "high": {}}
 	for _, node := range nodes {
@@ -265,12 +266,12 @@ func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode,
 		mainMembers = append(mainMembers, entry.name)
 	}
 	groups = append(groups, map[string]any{"name": mainGroup, "type": "select", "proxies": mainMembers})
-	if aiNode != "" {
+	if len(aiNodes) > 0 {
 		if chain {
 			members := []string{}
 			for _, rate := range []string{"low", "standard", "high", "self"} {
 				for _, node := range nodes {
-					if node.Name != aiNode && node.RateGroup == rate && !containsString([]string{"direct", "reject", "dns", "compatible"}, strings.ToLower(node.Type)) {
+					if !containsString(aiNodes, node.Name) && node.RateGroup == rate && !containsString([]string{"direct", "reject", "dns", "compatible"}, strings.ToLower(node.Type)) {
 						members = append(members, node.Name)
 					}
 				}
@@ -278,9 +279,10 @@ func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode,
 			if len(members) == 0 {
 				return nil, errors.New("AI chain requires another imported or saved proxy node as its entry")
 			}
-			groups = append(groups, map[string]any{"name": aiChainGroup, "type": "select", "proxies": members})
+			groups = append(groups, map[string]any{"name": aiAutoGroup, "type": "url-test", "proxies": members, "url": testURL, "interval": 300, "tolerance": 50})
+			groups = append(groups, map[string]any{"name": aiChainGroup, "type": "select", "proxies": append([]string{aiAutoGroup}, members...)})
 		}
-		groups = append(groups, map[string]any{"name": aiGroup, "type": "select", "proxies": []string{aiNode}})
+		groups = append(groups, map[string]any{"name": aiGroup, "type": "select", "proxies": aiNodes})
 	}
 	users, err := userGroups(custom, nodes)
 	if err != nil {
@@ -292,7 +294,7 @@ func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode,
 	}
 	for _, group := range users {
 		name := group["name"].(string)
-		if aiNode != "" && name == "💬 Ai平台" {
+		if len(aiNodes) > 0 && name == "💬 Ai平台" {
 			return nil, errors.New("custom groups cannot override the bound AI template group")
 		}
 		if index, exists := positions[name]; exists {
@@ -312,7 +314,7 @@ func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode,
 		if _, exists := positions[name]; exists {
 			continue
 		}
-		if aiNode != "" && name == "💬 Ai平台" {
+		if len(aiNodes) > 0 && name == "💬 Ai平台" {
 			group = map[string]any{"name": name, "type": "select", "proxies": []string{aiGroup}}
 		}
 		templateNames[name] = true

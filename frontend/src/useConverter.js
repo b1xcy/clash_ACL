@@ -2,7 +2,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api, post } from './api'
 
 export function useConverter() {
-  const form = reactive({ subscriptions: '', directLinks: '', aggregate: true, excludedURLs: [], preset: 'acl4ssr-online', ratePattern: '', renameRules: [], aiNode: '', aiChain: false, aiDomains: '', groupsJSON: '[]', customRules: '', policyMap: '{}', fallback: '', skipUnsupported: true, refreshGeneration: false })
+  const form = reactive({ subscriptions: '', directLinks: '', aggregate: true, excludedURLs: [], preset: 'acl4ssr-online', ratePattern: '', renameRules: [], aiNodes: [], aiChain: false, aiTestURL: '', aiDomains: '', groupsJSON: '[]', customRules: '', policyMap: '{}', fallback: '', skipUnsupported: true, refreshGeneration: false })
   const ready = ref(false), notice = ref(''), noticeType = ref(''), advanced = ref(false)
   const sources = ref([]), sourcePreviews = ref({}), sourceURLs = ref([]), sourcesLoading = ref(false)
   const imported = ref([]), validLinks = ref([]), selfHostedIDs = ref([]), savedNodes = ref([])
@@ -25,8 +25,8 @@ export function useConverter() {
     const seen = new Set()
     return [['直接导入', directNodes], ['订阅节点', subscriptionNodes], ['既有保存节点', savedNodes.value]].map(([label, items]) => ({ label, nodes: items.filter(node => { if (!node.id || seen.has(node.id)) return false; seen.add(node.id); return true }) }))
   })
-  const chosenAI = computed(() => aiChoices.value.flatMap(group => group.nodes).find(node => node.id === form.aiNode))
-  const aiMissing = computed(() => !!form.aiNode && !chosenAI.value)
+  const chosenAI = computed(() => aiChoices.value.flatMap(group => group.nodes).find(node => node.id === form.aiNodes[0]))
+  const aiMissing = computed(() => form.aiNodes.some(id => !aiChoices.value.some(group => group.nodes.some(node => node.id === id))))
   const downloadURL = computed(() => generation.value ? new URL(generation.value.download_path + (refreshDownload.value ? '&refresh=true' : ''), location.href).href : '')
   const aiPlaceholder = computed(() => '以下规则已内置，无需重复填写。\n留空即可；这里只填写你的额外中转站域名。\n\n' + builtinAIRules.value.join('\n'))
 
@@ -46,7 +46,7 @@ export function useConverter() {
     if (!Array.isArray(groups)) throw new Error('代理组需要 JSON 数组。')
     const policyMap = JSON.parse(form.policyMap || '{}')
     if (!policyMap || Array.isArray(policyMap) || typeof policyMap !== 'object' || Object.values(policyMap).some(value => typeof value !== 'string')) throw new Error('模板策略映射需要字符串值的 JSON 对象。')
-    return { urls: selectedURLs.value, aggregate: form.aggregate, direct_links: validLinks.value.join('\n'), policy: nodePolicy(), ai: { node_id: form.aiNode, chain: form.aiChain, domains: lines(form.aiDomains) }, groups_json: form.groupsJSON || '[]', rules: { preset: form.preset, custom_rules: lines(form.customRules), policy_map: policyMap, fallback: form.fallback.trim(), skip_unsupported: form.skipUnsupported } }
+    return { urls: selectedURLs.value, aggregate: form.aggregate, direct_links: validLinks.value.join('\n'), policy: nodePolicy(), ai: { node_id: '', node_ids: [...form.aiNodes], test_url: form.aiTestURL.trim(), chain: form.aiChain, domains: lines(form.aiDomains) }, groups_json: form.groupsJSON || '[]', rules: { preset: form.preset, custom_rules: lines(form.customRules), policy_map: policyMap, fallback: form.fallback.trim(), skip_unsupported: form.skipUnsupported } }
   }
   function scheduleAggregate() {
     clearTimeout(aggregateTimer)
@@ -147,7 +147,7 @@ export function useConverter() {
   async function saveOptions() {
     saving.value = true
     try {
-      await post('/api/options', { rename_rules: form.renameRules, rate_pattern: form.ratePattern.trim(), ai: { node_id: form.aiNode, chain: form.aiChain, domains: lines(form.aiDomains) }, groups_json: form.groupsJSON }, 'PUT')
+      await post('/api/options', { rename_rules: form.renameRules, rate_pattern: form.ratePattern.trim(), ai: { node_id: '', node_ids: [...form.aiNodes], test_url: form.aiTestURL.trim(), chain: form.aiChain, domains: lines(form.aiDomains) }, groups_json: form.groupsJSON }, 'PUT')
       message('转换设置已保存。', 'success')
     } catch (error) { message(error.message, 'error') } finally { saving.value = false }
   }
@@ -207,7 +207,7 @@ export function useConverter() {
   onMounted(async () => {
     try {
       const [options, available] = await Promise.all([api('/api/options'), api('/api/rules/presets'), loadAIRules(), loadRuleStatus()])
-      Object.assign(form, { renameRules: options.options.rename_rules || [], ratePattern: options.options.rate_pattern || '', aiNode: options.options.ai.node_id || '', aiChain: !!options.options.ai.chain, aiDomains: (options.options.ai.domains || []).join('\n'), groupsJSON: options.options.groups_json || '[]' })
+      Object.assign(form, { renameRules: options.options.rename_rules || [], ratePattern: options.options.rate_pattern || '', aiNodes: options.options.ai.node_ids ?? (options.options.ai.node_id ? [options.options.ai.node_id] : []), aiTestURL: options.options.ai.test_url || '', aiChain: !!options.options.ai.chain, aiDomains: (options.options.ai.domains || []).join('\n'), groupsJSON: options.options.groups_json || '[]' })
       savedNodes.value = options.self_hosted_nodes || []
       presets.value = [...available.presets, { id: 'none', name: '自定义规则（保留已启用服务分流）' }]
       ready.value = true

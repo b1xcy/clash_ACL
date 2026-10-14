@@ -76,7 +76,7 @@ PUT 是整体替换操作，更新前应先读取完整配置。非法 JSON、�
 - policy.self_hosted_ids 只接受当前直接链接稳定 ID，倍率固定 0、rate_group=self，优先于名称与倍率覆盖；未知 ID 拒绝。
 - 自建标记随生成快照保存，页面重载清空链接和标记。未知倍率进入标准组，普通优先低倍率；高倍率不进入自动备用。
 - groups_json 保持原始文本，经 Go 精确解码，保留大整数与长小数。代理组可使用 node_ids、proxies、filter、source_ids、rate_groups（self/low/standard/high）。
-- AI 固定组只有选定出口，绑定失效拒绝生成；chain=true 写入 dialer-proxy，并生成排除出口自身与 DIRECT 的前置选择组。
+- ai.node_ids 按顺序指定多个出口，去重后生成手动选择组；旧 node_id 兼容读取，node_ids 非 null 时优先（空数组明确清除）。任一选中出口缺失拒绝生成。chain=true 对所有出口写入 dialer-proxy，生成 ⚡ AI 前置自动 url-test 和默认选自动／可手动覆盖的 🔗 AI 前置选择；所有选中出口与 DIRECT 从前置排除。ai.test_url 可填 HTTP(S) 地址，留空派生首个出口的 https://服务器/，不使用代理端口。
 - 自定义 AI 规则优先，其他自定义规则优先于外部模板，最终只保留一个兜底；未知目标、空组、依赖循环拒绝。
 - 规则更新失败保留有效库；快照按规则版本重建，不重新拉取节点，不重复重命名。refresh=true 才强制刷新来源。
 - 所有接口无需认证；UI 预览脱敏，完整配置/API 与下载保留用户参数。

@@ -45,8 +45,20 @@ type RenameRule struct {
 
 type AIPolicy struct {
 	NodeID  string   `json:"node_id"`
+	NodeIDs []string `json:"node_ids"`
 	Domains []string `json:"domains"`
 	Chain   bool     `json:"chain,omitempty"`
+	TestURL string   `json:"test_url,omitempty"`
+}
+
+func (ai AIPolicy) selectedIDs() []string {
+	if ai.NodeIDs != nil {
+		return ai.NodeIDs
+	}
+	if ai.NodeID != "" {
+		return []string{ai.NodeID}
+	}
+	return nil
 }
 
 func defaultConfig() Config {
@@ -114,11 +126,19 @@ func validateConfig(config Config) error {
 		}
 		nodeIDs[node.ID] = true
 	}
-	if config.AI.NodeID != "" && !nodeIDs[config.AI.NodeID] && !(strings.HasPrefix(config.AI.NodeID, "node-") && validSnapshotID(strings.TrimPrefix(config.AI.NodeID, "node-"))) {
-		return errors.New("AI node_id must reference a saved node or a valid imported node ID")
+	for _, id := range config.AI.selectedIDs() {
+		if !nodeIDs[id] && !(strings.HasPrefix(id, "node-") && validSnapshotID(strings.TrimPrefix(id, "node-"))) {
+			return errors.New("AI node_ids must reference saved nodes or valid imported node IDs")
+		}
 	}
-	if config.AI.Chain && config.AI.NodeID == "" {
+	if config.AI.Chain && len(config.AI.selectedIDs()) == 0 {
 		return errors.New("AI chain requires a selected exit node")
+	}
+	if config.AI.TestURL != "" {
+		parsed, err := url.Parse(config.AI.TestURL)
+		if err != nil || parsed.Hostname() == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
+			return errors.New("AI test_url must be an HTTP or HTTPS URL")
+		}
 	}
 	return nil
 }
