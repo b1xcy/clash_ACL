@@ -2,6 +2,13 @@
 
 最后更新：2026-10-14。
 
+## 明文隧道过滤
+
+- 节点总览新增“自动丢弃明文隧道”，默认关闭；修改后自动重聚合，设置可保存／重载。过滤未启用 TLS 的 HTTP/SOCKS5、SOCKS4、无 TLS 的 VLESS、无 TLS 的 VMess none/zero、无加密插件的 SS none/dummy；保留 HTTP/SOCKS5 TLS、VLESS TLS/Reality 和普通加密协议。SS obfs TLS 仅伪装，仍过滤；v2ray/gost 插件真正 TLS 保留，其他插件不推断。
+- policy.drop_plaintext 贯穿预览／生成；config/options.drop_plaintext 保存默认设置。filtered_count 显示去重后的丢弃数量，原订阅缓存不变，关闭可恢复。AI 候选在聚合完成后排除被过滤节点，既有选中项保留缺失提示；生成不回退 AI 出口。全部被过滤时明确拒绝生成。
+- 快照参数固定开关，关闭／开启生成不同地址；refresh 沿用当次开关，规则重建使用已过滤节点。旧配置未设置时仍关闭，不覆盖已有 v1.0 标签与 Release。
+- 验证：Go 全量 test/build/vet、Vite build、Docker build 均通过。测试覆盖 TLS/Reality、VMess cipher、SS 插件、默认设置保存、显式关闭覆盖、缓存不变、过滤计数、快照设置固定、AI 出口过滤及全部过滤拒绝。最终 Docker 镜像通过合成 VLESS/AnyTLS 开关切换、设置保存读取、生成／下载 YAML 和内嵌新页面资源检查；临时容器已清理。仅本地提交，本次未 push 或发布新镜像。
+
 ## 当前范围
 
 用户已提出的功能均已实现：七种协议链接／YAML 订阅导入、自动聚合去重、倍率与重命名、国旗、自建零倍率、17 个 ACL4SSR 方案、AI 固定出口及链式前置选择、电报自建选项、规则每 24 小时更新、完整生成与持久化下载。

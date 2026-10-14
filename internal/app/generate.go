@@ -28,6 +28,7 @@ type GenerationRequest struct {
 }
 
 type GenerationPreview struct {
+	FilteredCount  int              `json:"filtered_count"`
 	Nodes          []AggregatedNode `json:"nodes"`
 	Groups         []map[string]any `json:"groups"`
 	Sources        []SourceView     `json:"sources"`
@@ -101,7 +102,7 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 		}
 	}
 	input := []AggregatedNode{}
-	policy := NodePolicyOptions{RenameRules: config.RenameRules, RatePattern: config.RatePattern, SourceRates: map[string]SourceRate{}}
+	policy := NodePolicyOptions{DropPlaintext: config.DropPlaintext, RenameRules: config.RenameRules, RatePattern: config.RatePattern, SourceRates: map[string]SourceRate{}}
 	if request.Policy != nil {
 		policy = *request.Policy
 		policy.SourceRates = map[string]SourceRate{}
@@ -154,9 +155,14 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 		return nil, preview, err
 	}
 	preview.DuplicateCount = duplicates
+	beforeFilter := len(nodes)
 	nodes, err = applyNodePolicy(nodes, policy)
 	if err != nil {
 		return nil, preview, err
+	}
+	preview.FilteredCount = beforeFilter - len(nodes)
+	if len(nodes) == 0 {
+		return nil, preview, errors.New("no nodes remain after plaintext tunnel filtering")
 	}
 	return renderConfig(config, request, nodes, preview, libraries...)
 }

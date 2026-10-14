@@ -18,7 +18,7 @@ func TestConversionOptionsPreserveSourcesAndPrivateNodeFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler := newHandler(path)
-	body := `{"rename_rules":[{"match":"HK","replacement":"香港","regex":false}],"ai":{"node_id":"fixed","domains":["openai.com"]},"groups_json":"[{\"name\":\"节点选择\",\"type\":\"select\",\"extension\":9007199254740993}]"}`
+	body := `{"drop_plaintext":true,"rename_rules":[{"match":"HK","replacement":"香港","regex":false}],"ai":{"node_id":"fixed","domains":["openai.com"]},"groups_json":"[{\"name\":\"节点选择\",\"type\":\"select\",\"extension\":9007199254740993}]"}`
 	request := httptest.NewRequest(http.MethodPut, "/api/options", strings.NewReader(body))
 
 	response := httptest.NewRecorder()
@@ -27,6 +27,9 @@ func TestConversionOptionsPreserveSourcesAndPrivateNodeFields(t *testing.T) {
 		t.Fatalf("cannot save options: %s", response.Body.String())
 	}
 	saved, err := readConfig(path)
+	if err != nil || !saved.DropPlaintext {
+		t.Fatal("plaintext filter setting was not persisted")
+	}
 	if err != nil || saved.Sources[0].URL != config.Sources[0].URL || saved.SelfHostedNodes[0].Proxy["extension"] != json.Number("9007199254740993") || saved.Groups[0]["extension"] != json.Number("9007199254740993") || saved.AI.NodeID != "fixed" {
 		t.Fatal("options update changed sources or lost protocol/group fields")
 	}

@@ -9,10 +9,11 @@ import (
 )
 
 type ConversionOptions struct {
-	RenameRules []RenameRule `json:"rename_rules"`
-	RatePattern string       `json:"rate_pattern"`
-	AI          AIPolicy     `json:"ai"`
-	GroupsJSON  string       `json:"groups_json"`
+	DropPlaintext bool         `json:"drop_plaintext"`
+	RenameRules   []RenameRule `json:"rename_rules"`
+	RatePattern   string       `json:"rate_pattern"`
+	AI            AIPolicy     `json:"ai"`
+	GroupsJSON    string       `json:"groups_json"`
 }
 
 func decodeOptions(reader io.Reader) (ConversionOptions, []map[string]any, error) {

@@ -80,7 +80,7 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 			nodes = append(nodes, map[string]string{"id": node.ID, "name": name})
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"options": ConversionOptions{RenameRules: config.RenameRules, RatePattern: config.RatePattern, AI: config.AI, GroupsJSON: string(groups)}, "self_hosted_nodes": nodes,
+			"options": ConversionOptions{DropPlaintext: config.DropPlaintext, RenameRules: config.RenameRules, RatePattern: config.RatePattern, AI: config.AI, GroupsJSON: string(groups)}, "self_hosted_nodes": nodes,
 		})
 	})
 	mux.HandleFunc("PUT /api/options", func(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +100,7 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 		}
 		config.RenameRules, config.AI, config.Groups = options.RenameRules, options.AI, groups
 		config.RatePattern = options.RatePattern
+		config.DropPlaintext = options.DropPlaintext
 		if err := validateConfig(config); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
@@ -352,6 +353,7 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
+		beforeFilter := len(nodes)
 		nodes, err = applyNodePolicy(nodes, request.Policy)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -367,7 +369,7 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 				counts["conflicts"]++
 			}
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"nodes": nodes, "input_count": len(inputs), "node_count": len(nodes), "duplicate_count": duplicates, "sources": views, "rate_counts": counts})
+		writeJSON(w, http.StatusOK, map[string]any{"nodes": nodes, "input_count": len(inputs), "node_count": len(nodes), "duplicate_count": duplicates, "filtered_count": beforeFilter - len(nodes), "sources": views, "rate_counts": counts})
 	})
 	mux.HandleFunc("GET /api/rules/presets", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"presets": rulePresets})

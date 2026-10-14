@@ -15,6 +15,7 @@ type SourceRate struct {
 }
 
 type NodePolicyOptions struct {
+	DropPlaintext bool                  `json:"drop_plaintext"`
 	SelfHostedIDs []string              `json:"self_hosted_ids,omitempty"`
 	RenameRules   []RenameRule          `json:"rename_rules"`
 	RatePattern   string                `json:"rate_pattern"`
@@ -117,6 +118,14 @@ func applyNodePolicy(input []AggregatedNode, options NodePolicyOptions) ([]Aggre
 		selfHosted[id] = true
 	}
 	nodes := append([]AggregatedNode(nil), input...)
+	if options.DropPlaintext {
+		nodes = make([]AggregatedNode, 0, len(input))
+		for _, node := range input {
+			if !isPlaintextProxy(node.Proxy) {
+				nodes = append(nodes, node)
+			}
+		}
+	}
 	for index := range nodes {
 		node := &nodes[index]
 		proxy := make(map[string]any, len(node.Proxy))
@@ -210,4 +219,33 @@ func applyNodePolicy(input []AggregatedNode, options NodePolicyOptions) ([]Aggre
 	}
 	resolveNodeNames(nodes)
 	return nodes, nil
+}
+
+func isPlaintextProxy(proxy map[string]any) bool {
+	kind, _ := proxy["type"].(string)
+	tls, _ := proxy["tls"].(bool)
+	if tls && containsString([]string{"http", "socks5", "vless", "vmess"}, strings.ToLower(kind)) {
+		return false
+	}
+	cipher, _ := proxy["cipher"].(string)
+	switch strings.ToLower(kind) {
+	case "http", "socks4", "socks5", "vless":
+		return true
+	case "vmess":
+		return strings.EqualFold(cipher, "none") || strings.EqualFold(cipher, "zero")
+	case "ss":
+		if !strings.EqualFold(cipher, "none") && !strings.EqualFold(cipher, "dummy") {
+			return false
+		}
+		plugin, _ := proxy["plugin"].(string)
+		options, _ := proxy["plugin-opts"].(map[string]any)
+		pluginTLS, _ := options["tls"].(bool)
+		switch plugin {
+		case "", "obfs":
+			return true
+		case "v2ray-plugin", "gost-plugin":
+			return !pluginTLS
+		}
+	}
+	return false
 }

@@ -16,6 +16,52 @@ func aggregateFixture(name, password string) map[string]any {
 	return map[string]any{"name": name, "type": "trojan", "server": "example.invalid", "port": 443, "password": password}
 }
 
+func TestAggregationFiltersPlaintextSubscriptionNodes(t *testing.T) {
+	dataDir := t.TempDir()
+	path := filepath.Join(dataDir, "config.json")
+	if err := writeConfig(path, defaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+	urls := []string{"https://example.invalid/sub"}
+	sources, err := requestSources(url.Values{"url": urls})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := newSourceManager(dataDir)
+	now := time.Now()
+	proxies := []map[string]any{
+		{"name": "Plain", "type": "http", "server": "plain.invalid", "port": 8080},
+		{"name": "Encrypted", "type": "socks5", "server": "secure.invalid", "port": 443, "tls": true},
+	}
+	if err := manager.writeCache(sources[0], SourceCache{LastSuccess: &now, LastAttempt: &now, Proxies: proxies}); err != nil {
+		t.Fatal(err)
+	}
+	handler := newHandler(path)
+	for _, enabled := range []bool{true, false} {
+		body, _ := json.Marshal(map[string]any{"urls": urls, "policy": NodePolicyOptions{DropPlaintext: enabled}})
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/aggregate/preview", strings.NewReader(string(body))))
+		var result struct {
+			Nodes    []AggregatedNode `json:"nodes"`
+			Filtered int              `json:"filtered_count"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || response.Code != http.StatusOK {
+			t.Fatal("aggregation failed", response.Body.String())
+		}
+		want := 2
+		if enabled {
+			want = 1
+		}
+		if len(result.Nodes) != want || result.Filtered != 2-want {
+			t.Fatal("preview filter/count mismatch", response.Body.String())
+		}
+	}
+	cache, err := manager.readCache(sources[0])
+	if err != nil || len(cache.Proxies) != 2 {
+		t.Fatal("filtering modified original subscription cache")
+	}
+}
+
 func TestAggregationIdentityAndNameConflicts(t *testing.T) {
 	first := aggregateFixture("Same", "password-one")
 	duplicate := aggregateFixture("Other", "password-one")

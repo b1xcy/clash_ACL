@@ -25,6 +25,42 @@ func generationFixture() Config {
 	return config
 }
 
+func TestPlaintextFilterGenerationAndSnapshotPlan(t *testing.T) {
+	config := generationFixture()
+	plain := SelfHostedNode{ID: "plain", Proxy: map[string]any{"name": "Plain HTTP", "type": "http", "server": "plain.invalid", "port": 8080}}
+	config.SelfHostedNodes = append(config.SelfHostedNodes, plain)
+	manager := newSourceManager(t.TempDir())
+	request := GenerationRequest{Rules: RuleRequest{Preset: "none"}}
+	_, oldID, err := snapshotPlan(config, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.DropPlaintext = true
+	plan, id, err := snapshotPlan(config, request)
+	if err != nil || id == oldID || !plan.Request.Policy.DropPlaintext {
+		t.Fatal("snapshot did not freeze plaintext filtering")
+	}
+	output, preview, err := generateConfig(context.Background(), manager, plan.Config, plan.Request, false)
+	if err != nil || len(preview.Nodes) != 3 || preview.FilteredCount != 1 || strings.Contains(string(output), "plain.invalid") {
+		t.Fatalf("plaintext node survived generation: count=%d, filtered=%d, err=%v", len(preview.Nodes), preview.FilteredCount, err)
+	}
+	request.Policy = &NodePolicyOptions{DropPlaintext: false}
+	_, preview, err = generateConfig(context.Background(), manager, config, request, false)
+	if err != nil || len(preview.Nodes) != 4 || preview.FilteredCount != 0 {
+		t.Fatal("explicitly disabling filtering did not override saved default", err)
+	}
+	request.Policy = nil
+	config.AI = AIPolicy{NodeID: "plain"}
+	if _, _, err := generateConfig(context.Background(), manager, config, request, false); err == nil || !strings.Contains(err.Error(), "selected AI node is not available") {
+		t.Fatal("filtered AI exit silently fell back", err)
+	}
+	config.AI = AIPolicy{}
+	config.SelfHostedNodes = []SelfHostedNode{plain}
+	if _, _, err := generateConfig(context.Background(), manager, config, request, false); err == nil || !strings.Contains(err.Error(), "no nodes remain") {
+		t.Fatal("all-filtered configuration was accepted", err)
+	}
+}
+
 func TestGenerateAllPresetsWithResolvedGroups(t *testing.T) {
 	config := generationFixture()
 	before, _ := json.Marshal(config)

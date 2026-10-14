@@ -11,6 +11,7 @@ import (
 )
 
 type Config struct {
+	DropPlaintext    bool             `json:"drop_plaintext"`
 	FetchConcurrency int              `json:"fetch_concurrency"`
 	Sources          []Source         `json:"sources"`
 	SelfHostedNodes  []SelfHostedNode `json:"self_hosted_nodes"`

@@ -67,7 +67,7 @@ func snapshotPlan(config Config, request GenerationRequest) (GenerationPlan, str
 	}
 	request.Rules.Targets = nil
 	if request.Policy == nil {
-		request.Policy = &NodePolicyOptions{RatePattern: config.RatePattern, RenameRules: config.RenameRules}
+		request.Policy = &NodePolicyOptions{DropPlaintext: config.DropPlaintext, RatePattern: config.RatePattern, RenameRules: config.RenameRules}
 	}
 	if request.AI == nil {
 		ai := config.AI
@@ -85,6 +85,7 @@ func snapshotPlan(config Config, request GenerationRequest) (GenerationPlan, str
 	}
 	config.Sources = selectedSources
 	config.Groups, config.AI, config.RenameRules, config.RatePattern = nil, AIPolicy{}, nil, ""
+	config.DropPlaintext = false
 	plan := GenerationPlan{Request: request, Config: config}
 	data, err := json.Marshal(plan)
 	if err != nil {

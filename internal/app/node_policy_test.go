@@ -35,6 +35,58 @@ func TestCountryFlagsAndBoundaries(t *testing.T) {
 	}
 }
 
+func TestPlaintextFilteringPreservesEncryptedNodes(t *testing.T) {
+	fixtures := []struct {
+		proxy map[string]any
+		drop  bool
+	}{
+		{map[string]any{"type": "http"}, true},
+		{map[string]any{"type": "http", "tls": true}, false},
+		{map[string]any{"type": "socks5", "tls": false}, true},
+		{map[string]any{"type": "socks5", "tls": true}, false},
+		{map[string]any{"type": "socks4"}, true},
+		{map[string]any{"type": "vless"}, true},
+		{map[string]any{"type": "vless", "tls": true, "reality-opts": map[string]any{"public-key": "synthetic"}}, false},
+		{map[string]any{"type": "vmess", "cipher": "none"}, true},
+		{map[string]any{"type": "vmess", "cipher": "zero"}, true},
+		{map[string]any{"type": "vmess", "cipher": "none", "tls": true}, false},
+		{map[string]any{"type": "vmess", "cipher": "auto"}, false},
+		{map[string]any{"type": "ss", "cipher": "aes-128-gcm"}, false},
+		{map[string]any{"type": "ss", "cipher": "none"}, true},
+		{map[string]any{"type": "ss", "cipher": "none", "plugin": "obfs", "plugin-opts": map[string]any{"mode": "tls"}}, true},
+		{map[string]any{"type": "ss", "cipher": "none", "plugin": "v2ray-plugin", "plugin-opts": map[string]any{"tls": true}}, false},
+		{map[string]any{"type": "trojan"}, false},
+		{map[string]any{"type": "anytls"}, false},
+		{map[string]any{"type": "hysteria2"}, false},
+		{map[string]any{"type": "tuic"}, false},
+	}
+	input := []AggregatedNode{}
+	expected := 0
+	for index, item := range fixtures {
+		if got := isPlaintextProxy(item.proxy); got != item.drop {
+			t.Fatalf("fixture %d: plaintext = %v, want %v", index, got, item.drop)
+		}
+		id, err := nodeIdentity(item.proxy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		input = append(input, AggregatedNode{ID: id, Name: "Synthetic " + string(rune('a'+index)), Proxy: item.proxy})
+		if !item.drop {
+			expected++
+		}
+	}
+	for _, enabled := range []bool{false, true} {
+		nodes, err := applyNodePolicy(input, NodePolicyOptions{DropPlaintext: enabled})
+		want := len(input)
+		if enabled {
+			want = expected
+		}
+		if err != nil || len(nodes) != want || len(input) != len(fixtures) {
+			t.Fatalf("filter %v: %d nodes, want %d, err %v", enabled, len(nodes), want, err)
+		}
+	}
+}
+
 func TestSelfHostedImportZeroRateTelegramAndAI(t *testing.T) {
 	links := importedEntry + "\n" + importedAnyTLS + "\n" + importedAnyTLS
 	id := parseURILines(importedAnyTLS)[0].NodeID

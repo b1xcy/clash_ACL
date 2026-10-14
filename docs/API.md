@@ -48,6 +48,8 @@ curl --get http://127.0.0.1:8080/api/subscriptions \
 
 POST /api/generate 接收 urls、aggregate、direct_links、policy、ai、groups（或 groups_json 文本）与 rules。省略 policy/ai/groups 使用保存的默认设置；rules 包含 preset、custom_rules、policy_map、fallback、skip_unsupported。默认方案为 acl4ssr-online；设置 preset=none 可只使用自定义规则。POST /api/generate?refresh=true 强制刷新来源。
 
+`policy.drop_plaintext` 默认 false；开启时过滤无 TLS 的 HTTP/SOCKS5、SOCKS4、无 TLS 的 VLESS、无 TLS 且 cipher 为 none/zero 的 VMess，以及 cipher 为 none/dummy 且无加密插件的 SS（obfs TLS 伪装仍视为明文；v2ray-plugin/gost-plugin 启用 TLS 则保留，其他插件不推断）。HTTP/SOCKS5 的 TLS 字段遵循 [Mihomo 配置](https://wiki.metacubex.one/config/proxies/http/)。PUT/GET /api/options 的 `drop_plaintext` 保存／读取默认设置。聚合与生成 preview 的 `filtered_count` 为去重后丢弃数量；原订阅缓存保持完整。生成请求显式 policy 优先于保存设置，快照固定此开关，后续 refresh 沿用。全部过滤时拒绝生成；选中的 AI 出口被过滤时按缺失出口报错。
+
 成功返回 download_path（/download?id=...）、generated_at、using_cache、refresh_succeeded 和脱敏 preview，不返回节点认证参数。完整 YAML 通过下载地址获取。直接节点、自建节点及转换参数保存于私有数据目录的 snapshots/ 文件，重启后地址仍有效；快照地址固定当时的设置，修改默认设置后须重新生成新地址。
 
 普通下载与 refresh=false 返回已有快照；规则版本变化时使用快照内保存的完整节点参数重建分组/规则，不额外刷新机场来源，不重复执行重命名。首次没有快照时拉取缺少的来源缓存并生成。refresh=true 等待启用来源刷新与生成，沿用默认并发 2 和同来源请求合并；同一快照的并发生成也合并。失败来源有成功缓存时可继续生成，响应头 X-Clash-ACL-Using-Cache 为 true，X-Clash-ACL-Refresh-Succeeded 为 false。缺少可用来源、AI/分组/规则错误或保存失败会返回错误，保留已有完整快照。
