@@ -14,6 +14,7 @@ type Config struct {
 	Sources          []Source         `json:"sources"`
 	SelfHostedNodes  []SelfHostedNode `json:"self_hosted_nodes"`
 	RenameRules      []RenameRule     `json:"rename_rules"`
+	RatePattern      string           `json:"rate_pattern"`
 	Groups           []map[string]any `json:"groups"`
 	Rules            []string         `json:"rules"`
 	AI               AIPolicy         `json:"ai"`
@@ -82,6 +83,11 @@ func decodeConfig(reader io.Reader) (Config, error) {
 }
 
 func validateConfig(config Config) error {
+	if config.RatePattern != "" {
+		if _, err := ratePattern(config.RatePattern); err != nil {
+			return err
+		}
+	}
 	if config.FetchConcurrency < 1 || config.FetchConcurrency > 16 {
 		return errors.New("fetch_concurrency must be between 1 and 16")
 	}

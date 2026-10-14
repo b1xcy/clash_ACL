@@ -18,11 +18,16 @@ type NodeOrigin struct {
 }
 
 type AggregatedNode struct {
-	ID      string         `json:"id"`
-	Name    string         `json:"name"`
-	Type    string         `json:"type"`
-	Origins []NodeOrigin   `json:"origins"`
-	Proxy   map[string]any `json:"-"`
+	ID           string         `json:"id"`
+	Name         string         `json:"name"`
+	Type         string         `json:"type"`
+	Origins      []NodeOrigin   `json:"origins"`
+	Proxy        map[string]any `json:"-"`
+	Rate         *float64       `json:"rate,omitempty"`
+	RateGroup    string         `json:"rate_group,omitempty"`
+	RateSource   string         `json:"rate_source,omitempty"`
+	RateConflict bool           `json:"rate_conflict,omitempty"`
+	RateValues   []float64      `json:"rate_values,omitempty"`
 }
 
 func nodeIdentity(proxy map[string]any) (string, error) {
@@ -71,6 +76,11 @@ func aggregateNodes(input []AggregatedNode) ([]AggregatedNode, int, error) {
 		positions[id] = len(nodes)
 		nodes = append(nodes, node)
 	}
+	resolveNodeNames(nodes)
+	return nodes, len(input) - len(nodes), nil
+}
+
+func resolveNodeNames(nodes []AggregatedNode) {
 	reserved := map[string]bool{"DIRECT": true, "REJECT": true, "REJECT-DROP": true, "PASS": true, "COMPATIBLE": true, "GLOBAL": true}
 	for _, node := range nodes {
 		reserved[node.Name] = true
@@ -90,5 +100,4 @@ func aggregateNodes(input []AggregatedNode) ([]AggregatedNode, int, error) {
 		node.Proxy["name"] = name
 		used[name] = true
 	}
-	return nodes, len(input) - len(nodes), nil
 }

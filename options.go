@@ -10,6 +10,7 @@ import (
 
 type ConversionOptions struct {
 	RenameRules []RenameRule `json:"rename_rules"`
+	RatePattern string       `json:"rate_pattern"`
 	AI          AIPolicy     `json:"ai"`
 	GroupsJSON  string       `json:"groups_json"`
 }
@@ -26,10 +27,18 @@ func decodeOptions(reader io.Reader) (ConversionOptions, []map[string]any, error
 		return ConversionOptions{}, nil, errors.New("expected one conversion settings object")
 	}
 	for _, rule := range options.RenameRules {
+		if rule.Match == "" {
+			return ConversionOptions{}, nil, errors.New("rename match cannot be empty")
+		}
 		if rule.Regex {
 			if _, err := regexp.Compile(rule.Match); err != nil {
 				return ConversionOptions{}, nil, errors.New("invalid rename regular expression")
 			}
+		}
+	}
+	if options.RatePattern != "" {
+		if _, err := ratePattern(options.RatePattern); err != nil {
+			return ConversionOptions{}, nil, err
 		}
 	}
 	if strings.TrimSpace(options.GroupsJSON) == "" {

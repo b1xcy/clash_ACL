@@ -16,11 +16,12 @@
 <div class="tabs" role="tablist"><button class="tab active" id="basicTab" role="tab" aria-selected="true">基础模式</button><button class="tab" id="advancedTab" role="tab" aria-selected="false">进阶模式</button></div>
 <div class="row"><label for="subscriptionInput">订阅链接</label><div><textarea class="field" id="subscriptionInput" rows="5" spellcheck="false" placeholder="https://example.com/subscribe?token=...&#10;https://example.net/clash.yaml"></textarea><div class="hint">每行一个 Clash / Mihomo YAML 订阅地址。关闭聚合时只使用第一行。</div><div class="actions input-actions"><label class="inline-check"><input type="checkbox" id="aggregate" checked>聚合多个订阅</label><button class="secondary" id="refreshSources">读取订阅</button></div><details class="source-summary"><summary>本次 <span id="countSources">0</span> 个来源 · 启用 <span id="countEnabled">0</span> 个</summary><div class="source-list" id="sourceList"><p class="muted">输入订阅地址后点击读取订阅。</p></div><div class="actions input-actions"><button class="secondary" id="reload" disabled>更新来源状态</button><button class="secondary" id="yamlPreview">本地 YAML 预览</button></div></details></div></div>
 <div class="row"><label for="uriText">直接节点链接</label><div><details><summary>导入 SS / TUIC / VLESS / VMess / Trojan / Hysteria2 / AnyTLS</summary><textarea class="field" id="uriText" rows="4" spellcheck="false" placeholder="每行一个协议链接，可混合多种协议"></textarea><div class="actions input-actions"><button class="secondary" id="previewURI">解析预览</button><button class="secondary" id="useURI" disabled>使用有效节点</button><button class="secondary" id="clearURI">清空导入</button></div><div class="hint" id="uriSummary">尚未导入直接节点。链接只保留在当前页面，刷新页面后清空。</div><div id="uriResults"></div></details></div></div>
-<div class="row"><div class="label">节点聚合</div><div><button class="secondary" id="previewAggregate">预览聚合与去重</button><div class="hint" id="aggregateSummary">使用本次订阅与已确认的直接节点，不保存服务器来源配置。</div><div id="aggregateResults"></div></div></div>
+<div class="row"><div class="label">节点聚合</div><div><button class="secondary" id="previewAggregate">预览聚合、倍率与重命名</button><div class="hint" id="aggregateSummary">使用本次订阅与已确认的直接节点，不保存服务器来源配置。</div><div id="aggregateResults"></div></div></div>
 <div class="row"><label for="target">客户端</label><div><select class="field field-small" id="target"><option value="mihomo">Mihomo / Clash.Meta</option></select></div></div>
 <div id="advancedOptions" hidden>
 <div class="divider"></div>
 <div class="row"><div class="label">倍率分组</div><div><div class="rate-info"><span>低倍率 &lt; 1x</span><span>标准倍率 = 1x / 未识别</span><span>高倍率 &gt; 1x</span></div></div></div>
+<div class="row"><label for="ratePattern">倍率识别规则</label><div><input class="field" id="ratePattern" spellcheck="false" placeholder="留空自动识别：倍率:0.5 / 0.5x / 0.5倍"><div class="hint">自定义正则的第一个捕获组需为数字。同节点倍率冲突按较高值处理并提示；从原始名称识别后才执行重命名。</div></div></div>
 <div class="row"><div class="label">节点重命名</div><div><div id="renameRules"></div><button class="secondary" id="addRename" disabled>＋ 添加替换规则</button><div class="hint">按顺序执行。可使用文本替换或正则替换。</div></div></div>
 <div class="row"><label for="aiNode">AI 固定出口</label><div><select class="field field-small" id="aiNode" disabled><option value="">未指定</option></select><div class="hint">只能选择自建节点。已保存 <span id="countSelf">0</span> 个自建节点。</div></div></div>
 <div class="row"><label for="aiDomains">AI 服务域名</label><div><textarea class="field" id="aiDomains" rows="3" spellcheck="false" placeholder="openai.com&#10;chatgpt.com&#10;claude.ai"></textarea><div class="hint">每行一个域名。中转站等其他服务按需要单独添加。</div></div></div>
@@ -135,7 +136,7 @@ function renderRenameRules() {
 async function loadConversionOptions() {
   byId('saveOptions').disabled=true; byId('addRename').disabled=true;
   const data=await api('/api/options'); const options=data.options;
-  renameRules=structuredClone(options.rename_rules||[]);renderRenameRules();byId('aiDomains').value=(options.ai.domains||[]).join('\n');byId('groupSettings').value=options.groups_json||'[]';
+  renameRules=structuredClone(options.rename_rules||[]);renderRenameRules();byId('ratePattern').value=options.rate_pattern||'';byId('aiDomains').value=(options.ai.domains||[]).join('\n');byId('groupSettings').value=options.groups_json||'[]';
   byId('aiNode').replaceChildren();const empty=document.createElement('option');empty.value='';empty.textContent='未指定';byId('aiNode').append(empty);
   byId('countSelf').textContent=data.self_hosted_nodes.length;
   selfHostedNames=data.self_hosted_nodes.map(node=>node.name).filter(Boolean);
@@ -145,7 +146,7 @@ async function loadConversionOptions() {
 byId('addRename').addEventListener('click',()=>{renameRules.push({match:'',replacement:'',regex:false});renderRenameRules();});
 byId('saveOptions').addEventListener('click',async()=>{
   byId('saveOptions').disabled=true;
-  try { const options={rename_rules:renameRules,ai:{node_id:byId('aiNode').value,domains:byId('aiDomains').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean)},groups_json:byId('groupSettings').value};await api('/api/options',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(options)});message('转换设置已保存。','success'); }
+  try { const options={rename_rules:renameRules,rate_pattern:byId('ratePattern').value.trim(),ai:{node_id:byId('aiNode').value,domains:byId('aiDomains').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean)},groups_json:byId('groupSettings').value};await api('/api/options',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(options)});message('转换设置已保存。','success'); }
   catch(error){message(error.message,'error');}finally{byId('saveOptions').disabled=false;}
 });
 
@@ -187,10 +188,10 @@ byId('previewAggregate').addEventListener('click', async () => {
   byId('previewAggregate').disabled=true; byId('aggregateResults').replaceChildren();
   try {
     const urls = [...new Set(byId('subscriptionInput').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean))];
-    const data=await api('/api/aggregate/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({urls,aggregate:byId('aggregate').checked,direct_links:confirmedURIs.join('\n')})});
+    const data=await api('/api/aggregate/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({urls,aggregate:byId('aggregate').checked,direct_links:confirmedURIs.join('\n'),policy:{rename_rules:renameRules,rate_pattern:byId('ratePattern').value.trim()}})});
     const cached=data.sources.filter(source=>source.using_cache).length;
-    byId('aggregateSummary').textContent='输入 '+data.input_count+' 个节点，去重后 '+data.node_count+' 个，合并重复 '+data.duplicate_count+' 个。'+(cached ? cached+' 个来源使用最近成功缓存。' : '');
-    data.nodes.forEach(node=>{const row=document.createElement('div');row.className='node-row';const name=document.createElement('span');name.textContent=node.name;const origin=document.createElement('span');origin.textContent=node.type+' · '+node.origins.map(value=>value.source_name).join('、');row.append(name,origin);byId('aggregateResults').append(row);});
+    byId('aggregateSummary').textContent='输入 '+data.input_count+' 个节点，去重后 '+data.node_count+' 个，合并重复 '+data.duplicate_count+' 个。低 '+data.rate_counts.low+' / 标准 '+data.rate_counts.standard+' / 高 '+data.rate_counts.high+'；未识别 '+data.rate_counts.unknown+'；倍率冲突 '+data.rate_counts.conflicts+'。'+(cached ? cached+' 个来源使用最近成功缓存。' : '');
+    data.nodes.forEach(node=>{const row=document.createElement('div');row.className='node-row';const name=document.createElement('span');name.textContent=node.name;const origin=document.createElement('span');const rate=node.rate===undefined?'标准倍率（未识别）':({low:'低倍率',standard:'标准倍率',high:'高倍率'}[node.rate_group]+' '+node.rate+'x');origin.textContent=node.type+' · '+rate+(node.rate_conflict?'（冲突）':'')+' · '+node.origins.map(value=>value.source_name).join('、');row.append(name,origin);byId('aggregateResults').append(row);});
   } catch(error) {byId('aggregateSummary').textContent=error.message;}
   finally {byId('previewAggregate').disabled=false;}
 });

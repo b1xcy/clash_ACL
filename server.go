@@ -38,7 +38,7 @@ func newHandler(configPath string) http.Handler {
 			sources = append(sources, sourceManager.view(source))
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"capabilities": map[string]bool{"conversion": false, "uri_import": true, "aggregation": true, "rule_import": true}, "sources": sources,
+			"capabilities": map[string]bool{"conversion": false, "uri_import": true, "aggregation": true, "rule_import": true, "node_policy": true}, "sources": sources,
 			"counts": map[string]int{"sources": len(config.Sources), "enabled": enabled, "self_hosted": len(config.SelfHostedNodes), "groups": len(config.Groups)},
 		})
 	})
@@ -64,7 +64,7 @@ func newHandler(configPath string) http.Handler {
 			nodes = append(nodes, map[string]string{"id": node.ID, "name": name})
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"options": ConversionOptions{RenameRules: config.RenameRules, AI: config.AI, GroupsJSON: string(groups)}, "self_hosted_nodes": nodes,
+			"options": ConversionOptions{RenameRules: config.RenameRules, RatePattern: config.RatePattern, AI: config.AI, GroupsJSON: string(groups)}, "self_hosted_nodes": nodes,
 		})
 	})
 	mux.HandleFunc("PUT /api/options", func(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +83,7 @@ func newHandler(configPath string) http.Handler {
 			return
 		}
 		config.RenameRules, config.AI, config.Groups = options.RenameRules, options.AI, groups
+		config.RatePattern = options.RatePattern
 		if err := validateConfig(config); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
@@ -213,9 +214,10 @@ func newHandler(configPath string) http.Handler {
 		reader := http.MaxBytesReader(w, r.Body, maxSubscriptionSize)
 		defer reader.Close()
 		var request struct {
-			URLs        []string `json:"urls"`
-			Aggregate   *bool    `json:"aggregate"`
-			DirectLinks string   `json:"direct_links"`
+			URLs        []string          `json:"urls"`
+			Aggregate   *bool             `json:"aggregate"`
+			DirectLinks string            `json:"direct_links"`
+			Policy      NodePolicyOptions `json:"policy"`
 		}
 		decoder := json.NewDecoder(reader)
 		decoder.DisallowUnknownFields()
@@ -273,7 +275,22 @@ func newHandler(configPath string) http.Handler {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"nodes": nodes, "input_count": len(inputs), "node_count": len(nodes), "duplicate_count": duplicates, "sources": views})
+		nodes, err = applyNodePolicy(nodes, request.Policy)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		counts := map[string]int{"low": 0, "standard": 0, "high": 0, "unknown": 0, "conflicts": 0}
+		for _, node := range nodes {
+			counts[node.RateGroup]++
+			if node.Rate == nil {
+				counts["unknown"]++
+			}
+			if node.RateConflict {
+				counts["conflicts"]++
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"nodes": nodes, "input_count": len(inputs), "node_count": len(nodes), "duplicate_count": duplicates, "sources": views, "rate_counts": counts})
 	})
 	mux.HandleFunc("GET /api/rules/presets", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"presets": rulePresets})
