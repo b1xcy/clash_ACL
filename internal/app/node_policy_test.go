@@ -146,7 +146,7 @@ func TestSelfHostedImportZeroRateTelegramAndAI(t *testing.T) {
 					}
 					telegram = group["name"].(string)
 				case aiChainGroup:
-					if len(members) != 3 || members[0] != aiAutoGroup || members[1] != "Entry 0.5x" || members[2] != "DIRECT" {
+					if len(members) != 3 || members[0] != aiAutoGroup || members[1] != "DIRECT" || members[2] != "Entry 0.5x" {
 						t.Fatal("self exit introduced AI loop")
 					}
 				case mainGroup:

@@ -42,7 +42,7 @@ func TestMultipleAIExitsAutoEntryAndOverrides(t *testing.T) {
 					t.Fatal("auto entry includes an exit or tests incorrect target", group)
 				}
 			case aiChainGroup:
-				if !reflect.DeepEqual(members, []string{aiAutoGroup, "Entry 0.5x", "DIRECT"}) {
+				if !reflect.DeepEqual(members, []string{aiAutoGroup, "DIRECT", "Entry 0.5x"}) {
 					t.Fatal("manual override or automatic default missing")
 				}
 			}
