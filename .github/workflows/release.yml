@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/docker-image.yml
+    secrets: inherit
+
+  release:
+    needs: image
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      IMAGE_DIGEST: ${{ needs.image.outputs.image_digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build frontend and verify Go
+        run: |
+          npm --prefix frontend ci
+          npm --prefix frontend run build
+          go test ./...
+          go vet ./...
+
+      - name: Package executable and complete source
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9.-]+)?$ ]]
+          mkdir -p artifacts "$RUNNER_TEMP/release"
+          go build -trimpath -ldflags="-s -w" -o "$RUNNER_TEMP/release/clash-acl" ./cmd/clash-acl
+          cp README.md "$RUNNER_TEMP/release/README.md"
+          tar -czf "artifacts/clash-acl-$RELEASE_TAG-linux-amd64.tar.gz" -C "$RUNNER_TEMP/release" clash-acl README.md
+          git archive --format=zip --prefix="clash_ACL-$RELEASE_TAG/" -o "artifacts/clash-acl-$RELEASE_TAG-source.zip" "$GITHUB_SHA"
+          (cd artifacts && sha256sum *.tar.gz *.zip > SHA256SUMS)
+
+      - name: Publish GitHub Release
+        run: |
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          ## clash_ACL ${RELEASE_TAG#v}
+
+          - YAML 订阅与七种协议链接自动导入、聚合、去重、重命名和国旗。
+          - 自建零倍率分组、电报自建出口、多个 AI 出口与 url-test 前置自动优选。
+          - 17 个 ACL4SSR 方案、每 24 小时更新、完整分流与持久化订阅下载。
+          - Vue 页面内嵌在 Go 程序中，无需运行 Node 服务。
+
+          ### Docker
+          \`docker pull ghcr.io/b1xcy/clash_acl:$RELEASE_TAG\`
+
+          镜像别名：\`ghcr.io/b1xcy/clash_acl:${RELEASE_TAG#v}\`。
+          镜像摘要：\`$IMAGE_DIGEST\`。
+
+          ### 下载
+          Linux amd64 可执行包包含前端与规则；source.zip 包含本标签的完整源码和依赖锁。使用 SHA256SUMS 校验下载文件。
+          EOF
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" artifacts/* --clobber
+          else
+            gh release create "$RELEASE_TAG" artifacts/* --verify-tag --title "${RELEASE_TAG#v}" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
+          fi

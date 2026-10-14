@@ -33,7 +33,7 @@ docker run -d --name clash-acl --restart unless-stopped \
 | `CLASH_ACL_DATA_DIR` | 本地 `data`；镜像 `/data` | 配置与持久数据 |
 | `CLASH_ACL_RULE_AUTO_UPDATE` | `true` | 24 小时检查 ACL；false 关闭定时，仍可手动更新 |
 
-GitHub Actions 在推送 main、v* 标签或手动触发时构建发布到 `ghcr.io/b1xcy/clash_acl`，main 对应 latest。本地开发不会自动推送或发布。
+GitHub Actions 在推送 main 时发布 `ghcr.io/b1xcy/clash_acl:latest`；推送 v* 标签触发 release.yml，先发布并核验 GHCR 镜像，再发布 GitHub Release。v1.0 提供镜像标签 v1.0、1.0、latest 和 SHA，Release 名称 1.0；附件包含 Linux amd64 可执行包（内嵌页面／规则）、本标签完整源码 ZIP 和 SHA256SUMS。Release 创建使用 GITHUB_TOKEN，无需额外密钥，失败可在同一标签重新运行。
 
 ## 使用
 

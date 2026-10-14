@@ -119,7 +119,7 @@
 - 使用 GitHub 提供的 `GITHUB_TOKEN` 与 `packages: write` 权限登录 GHCR，不要求额外 Docker Hub 账号或 PAT。
 - 已提供 Go 服务、内嵌 HTML 和多阶段 Dockerfile，workflow 直接执行镜像构建与发布。构建阶段按 `go.mod` / `go.sum` 下载依赖并运行 Go 测试；运行镜像只包含程序、HTTPS 根证书和数据目录，配置与凭据使用数据卷或运行时注入。
 - 首版 workflow 构建 `linux/amd64` 镜像，VPS 架构不匹配时再补充对应平台。
-- agent 只执行本地 commit，不执行 Git push 或远程触发；用户自行推送后，workflow 发布镜像。Git push 与 workflow 向 GHCR 发布镜像是不同操作。
+- 默认只执行本地 commit；用户明确授权发布时可 push 并跟踪远程 workflow。本次用户已授权编写 Release workflow、创建 v1.0 并 push 到 GitHub，需确认 Release、GHCR 镜像及完整源码均已生成。Git push 与 workflow 发布镜像是不同操作。
 
 ### 阶段 2：编辑体验
 
@@ -144,14 +144,14 @@
 
 ## 每个功能点完成后的交接与 Git 流程
 
-“完成”必须包含实现、必要验证、交接更新和本地 commit，不能只写完代码。Git push 由用户自行执行，agent 不自动推送。
+“完成”必须包含实现、必要验证、交接更新和本地 commit，不能只写完代码。默认 Git push 由用户自行执行；用户明确授权 push/release 时按授权执行。
 
 1. 检查本功能的验收条件并运行相关检查；记录实际结果，不把未运行的检查记为通过。
 2. 同步更新 `docs/handoff.md`：完成内容、行为变化、验证命令与结果、未解决问题、下一步。
 3. 用户可见能力或启动方式改变时，同步更新 `README.md`；约定改变时同步更新本文。
 4. 使用 `git diff --check` 和 `git diff` 审查改动，确认没有真实订阅或节点秘密。
 5. 只暂存本功能涉及的文件，提交代码与交接文档到同一 commit。提交信息使用明确的 `feat:`、`fix:` 或 `docs:` 描述。
-6. 提交后检查 `git log -1` 与 `git status --short --branch`，报告 commit 和本地领先远程的状态，不执行 `git push`。
+6. 提交后检查 `git log -1` 与 `git status --short --branch`；默认不 push。用户授权发布时推送指定分支／标签，跟踪并验证远程产物后报告。
 7. 若检查或 commit 失败，记录具体阻塞；不得声称已提交。恢复后完成剩余本地提交。
 
 `docs/handoff.md` 不必写入其自身所在 commit 的哈希；精确提交身份使用 Git 查询，避免循环修改文档。

@@ -37,6 +37,12 @@
 
 ## 接手约定
 
-先阅读根目录 agent.md、README.md 与本文。历史可选规划不作为必做功能；不增加服务器节点检测。Python 一律 uv，不提交真实凭据或改生效 Clash 配置。交付包含验证、交接和本地 commit，不自动 push。
+先阅读根目录 agent.md、README.md 与本文。历史可选规划不作为必做功能；不增加服务器节点检测。Python 一律 uv，不提交真实凭据或改生效 Clash 配置。默认不 push；本次用户明确授权 v1.0 标签与完整 main 推送及 Release/GHCR 发布。
+
+## v1.0 发布
+
+- 新增 release.yml：v* 标签触发，可在标签上手动重跑；先复用 docker-image.yml 发布并按摘要核验 GHCR，再构建前端、运行 Go test/vet、打包 Linux amd64 二进制、完整源码 ZIP 与 SHA256SUMS，发布标题为去 v 的版本号的 GitHub Release。同标签重跑更新附件，不创建重复 Release。
+- docker-image.yml 增加 workflow_call 与摘要输出；main 自动镜像发布保持，标签改由 Release 调用，避免同标签重复构建；v1.0 镜像提供 v1.0、1.0、latest、SHA。使用标准 GITHUB_TOKEN 的 contents:write/packages:write，无额外凭据。
+- actionlint 与本地 Docker 构建已通过。仓库当前私有，保留可见性；缓存 GitHub 身份 b1xcy 可推送。发布前尚未执行 push/tag，最终远程结果以本次完成报告和 GitHub 为准。
 
 历史见 [history.md](history.md)，API 和生成约束见 [API.md](API.md)。
