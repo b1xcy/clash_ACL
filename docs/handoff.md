@@ -43,6 +43,8 @@
 
 - 新增 release.yml：v* 标签触发，可在标签上手动重跑；先复用 docker-image.yml 发布并按摘要核验 GHCR，再构建前端、运行 Go test/vet、打包 Linux amd64 二进制、完整源码 ZIP 与 SHA256SUMS，发布标题为去 v 的版本号的 GitHub Release。同标签重跑更新附件，不创建重复 Release。
 - docker-image.yml 增加 workflow_call 与摘要输出；main 自动镜像发布保持，标签改由 Release 调用，避免同标签重复构建；v1.0 镜像提供 v1.0、1.0、latest、SHA。使用标准 GITHUB_TOKEN 的 contents:write/packages:write，无额外凭据。
-- actionlint 与本地 Docker 构建已通过。仓库当前私有，保留可见性；缓存 GitHub 身份 b1xcy 可推送。发布前尚未执行 push/tag，最终远程结果以本次完成报告和 GitHub 为准。
+- actionlint 与本地 Docker 构建通过。已按授权原子推送完整 main 与 v1.0，标签指向 e8ca195901f0c9396fd63c91d7554dc235e76e6e，仓库保持私有。首次标签自动运行未出现，已在 v1.0 手动触发同一 Release workflow。
+- GitHub Release [1.0](https://github.com/b1xcy/clash_ACL/releases/tag/v1.0) 已正式发布（非 draft/prerelease）；[Release Actions](https://github.com/b1xcy/clash_ACL/actions/runs/38538029002) 与 main 镜像发布均成功。镜像日志确认 ghcr.io/b1xcy/clash_acl:v1.0、:1.0、:latest、:sha-e8ca195 已发布，摘要 sha256:f37762ebd455b0982931cfe32d5f9621614285dac0aa3172d3bff60caabe891a 经 registry inspect 核验。
+- Release 三个附件：clash-acl-v1.0-linux-amd64.tar.gz、clash-acl-v1.0-source.zip、SHA256SUMS。已实际下载并核对 SHA256SUMS；源码包含完整标签源码，包括 Go/Vue/规则/依赖锁和 workflow。GitHub 包 API 因当前本机凭据缺少包读取范围返回 403，镜像发布／摘要通过 Actions 的 GITHUB_TOKEN 验证；没有更改访问权限或打印凭据。
 
 历史见 [history.md](history.md)，API 和生成约束见 [API.md](API.md)。
