@@ -7,6 +7,8 @@
 - 按用户要求将 `🔗 AI 前置选择` 顺序调整为 `⚡ AI 前置自动`、`DIRECT`、其余节点，方便切换直连；自动组候选保持原样。
 - 快照生成版本更新为 ai-self-v4，旧订阅下载时从保存节点重建以应用新顺序。相关现有测试、README、开发约定与 Release 说明同步调整。用户已授权打 v1.2.1 标签并推送发布。
 - 验证：Go 全量 test/build/vet、Vite build、`docker build -t clash-acl:local .` 与 git diff --check 通过；本次未配置 Mihomo 内核，不做真实连通性检测。
+- 已原子推送 main 与 v1.2.1，标签指向 2e92e7918434f1025bbe82856f17221fc04ede60。[Release 1.2.1](https://github.com/b1xcy/clash_ACL/releases/tag/v1.2.1) 正式发布，[Release Actions](https://github.com/b1xcy/clash_ACL/actions/runs/38606988485) 与 main 镜像 Actions 38606988302 均成功。
+- GHCR v1.2.1、1.2.1、发布时 latest 均匿名访问 HTTP 200，摘要 sha256:01a9a691666e28b7fcf993efc0949e037280ada2cd5a37ea9549210796a05514。三个附件已下载，两个压缩包的 SHA256 校验通过，源码 ZIP 覆盖标签全部 116 个跟踪文件。
 
 ## AI 前置直连选项
 
