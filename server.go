@@ -108,6 +108,67 @@ func newHandler(configPath string) http.Handler {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"sources": config.Sources})
 	})
+	mux.HandleFunc("GET /api/self-hosted", func(w http.ResponseWriter, r *http.Request) {
+		configMu.RLock()
+		defer configMu.RUnlock()
+		config, err := readConfig(configPath)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read configuration"})
+			return
+		}
+		nodes := config.SelfHostedNodes
+		if nodes == nil {
+			nodes = []SelfHostedNode{}
+		}
+		data, err := json.MarshalIndent(nodes, "", "  ")
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read self-hosted nodes"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"nodes_json": string(data)})
+	})
+	mux.HandleFunc("PUT /api/self-hosted", func(w http.ResponseWriter, r *http.Request) {
+		reader := http.MaxBytesReader(w, r.Body, maxSubscriptionSize)
+		defer reader.Close()
+		var nodes []SelfHostedNode
+		decoder := json.NewDecoder(reader)
+		decoder.UseNumber()
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&nodes); err != nil || nodes == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "expected a self-hosted node array"})
+			return
+		}
+		var extra any
+		if err := decoder.Decode(&extra); err != io.EOF {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "expected one self-hosted node array"})
+			return
+		}
+		for _, node := range nodes {
+			name, _ := node.Proxy["name"].(string)
+			kind, _ := node.Proxy["type"].(string)
+			if name == "" || kind == "" {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "self-hosted proxies require a name and type"})
+				return
+			}
+		}
+		configMu.Lock()
+		defer configMu.Unlock()
+		config, err := readConfig(configPath)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read configuration"})
+			return
+		}
+		config.SelfHostedNodes = nodes
+		if err := validateConfig(config); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if err := writeConfig(configPath, config); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot save self-hosted nodes"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "saved"})
+	})
 	mux.HandleFunc("PUT /api/sources", func(w http.ResponseWriter, r *http.Request) {
 		reader := http.MaxBytesReader(w, r.Body, 4<<20)
 		defer reader.Close()

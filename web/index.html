@@ -18,24 +18,26 @@
 <div class="row"><label for="uriText">直接节点链接</label><div><details><summary>导入 SS / TUIC / VLESS / VMess / Trojan / Hysteria2 / AnyTLS</summary><textarea class="field" id="uriText" rows="4" spellcheck="false" placeholder="每行一个协议链接，可混合多种协议"></textarea><div class="actions input-actions"><button class="secondary" id="previewURI">解析预览</button><button class="secondary" id="useURI" disabled>使用有效节点</button><button class="secondary" id="clearURI">清空导入</button></div><div class="hint" id="uriSummary">尚未导入直接节点。链接只保留在当前页面，刷新页面后清空。</div><div id="uriResults"></div></details></div></div>
 <div class="row"><div class="label">节点聚合</div><div><button class="secondary" id="previewAggregate">预览聚合、倍率与重命名</button><div class="hint" id="aggregateSummary">使用本次订阅与已确认的直接节点，不保存服务器来源配置。</div><div id="aggregateResults"></div></div></div>
 <div class="row"><label for="target">客户端</label><div><select class="field field-small" id="target"><option value="mihomo">Mihomo / Clash.Meta</option></select></div></div>
+<div class="row"><label for="rulePreset">内置规则方案</label><div><select class="field" id="rulePreset" disabled><option>正在读取本地方案…</option></select><div class="hint" id="presetDescription">ACL4SSR 本地规则随镜像发布，无需填写远程地址。</div></div></div>
 <div id="advancedOptions" hidden>
 <div class="divider"></div>
 <div class="row"><div class="label">倍率分组</div><div><div class="rate-info"><span>低倍率 &lt; 1x</span><span>标准倍率 = 1x / 未识别</span><span>高倍率 &gt; 1x</span></div></div></div>
 <div class="row"><label for="ratePattern">倍率识别规则</label><div><input class="field" id="ratePattern" spellcheck="false" placeholder="留空自动识别：倍率:0.5 / 0.5x / 0.5倍"><div class="hint">自定义正则的第一个捕获组需为数字。同节点倍率冲突按较高值处理并提示；从原始名称识别后才执行重命名。</div></div></div>
 <div class="row"><div class="label">节点重命名</div><div><div id="renameRules"></div><button class="secondary" id="addRename" disabled>＋ 添加替换规则</button><div class="hint">按顺序执行。可使用文本替换或正则替换。</div></div></div>
 <div class="row"><label for="aiNode">AI 固定出口</label><div><select class="field field-small" id="aiNode" disabled><option value="">未指定</option></select><div class="hint">只能选择自建节点。已保存 <span id="countSelf">0</span> 个自建节点。</div></div></div>
+<div class="row"><div class="label">自建节点</div><div><details><summary>编辑自建节点参数</summary><div class="actions input-actions"><button class="secondary" id="loadSelfHosted">读取自建节点</button><button class="secondary" id="saveSelfHosted" disabled>保存自建节点</button></div><textarea class="field code" id="selfHostedSettings" spellcheck="false" placeholder='[{"id":"fixed","proxy":{"name":"固定出口","type":"ss","server":"example.com","port":443,"cipher":"aes-128-gcm","password":"..."}}]'></textarea><div class="hint" id="selfHostedSummary">先读取已有节点，再编辑 JSON 数组。参数保留完整 Mihomo 字段；删除已绑定 AI 的节点前须先解除 AI 绑定并保存转换设置。</div></details></div></div>
 <div class="row"><label for="aiDomains">AI 服务域名</label><div><textarea class="field" id="aiDomains" rows="3" spellcheck="false" placeholder="openai.com&#10;chatgpt.com&#10;claude.ai"></textarea><div class="hint">每行一个域名。中转站等其他服务按需要单独添加。</div></div></div>
-<div class="row"><label for="groupSettings">代理组配置</label><div><textarea class="field code" id="groupSettings" spellcheck="false" placeholder='[{"name":"节点选择","type":"select","proxies":[]}]'>[]</textarea><div class="hint">JSON 数组，每个代理组需要 name 和 type；可编辑成员及其他分组参数。</div></div></div>
-<div class="row"><label for="rulePreset">内置规则方案</label><div><select class="field" id="rulePreset" disabled><option>正在读取本地方案…</option></select><div class="hint">ACL4SSR 模板与规则已包含在镜像中，保持 ruleset 写法，运行时读取本地文件。</div></div></div>
-<div class="row"><label for="customRules">自定义规则</label><div><textarea class="field code" id="customRules" spellcheck="false" placeholder="DOMAIN-SUFFIX,example.com,DIRECT"></textarea><div class="hint">每行一条完整 Mihomo 规则。规则输入用于本次请求，不随「保存转换设置」持久化。AI 固定出口生成仍待接入。</div></div></div>
+<div class="row"><label for="groupSettings">代理组配置</label><div><textarea class="field code" id="groupSettings" spellcheck="false" placeholder='[{"name":"自选低倍率","type":"select","rate_groups":["low"]}]'>[]</textarea><div class="hint">JSON 数组，可用 proxies、node_ids 指定成员，或用 filter、source_ids、rate_groups 筛选节点。相同模板组名以这里为准；AI 与倍率组受保护。</div></div></div>
+<div class="row"><label for="customRules">自定义规则</label><div><textarea class="field code" id="customRules" spellcheck="false" placeholder="DOMAIN-SUFFIX,example.com,DIRECT"></textarea><div class="hint">每行一条完整 Mihomo 规则，优先于模板规则；指定 AI 出口后，AI 服务规则位于最前面。此处输入随本次生成地址保存。</div></div></div>
 <div class="row"><label for="policyMap">模板策略映射（可选）</label><div><textarea class="field code" id="policyMap" spellcheck="false" placeholder='{"🎯 全球直连":"DIRECT","🛑 全球拦截":"REJECT"}'>{}</textarea><div class="hint">默认使用模板中的分组名称。可用 JSON 将模板策略改为自己的代理组或自建节点名称。</div></div></div>
 <div class="row"><label for="ruleFallback">最终兜底</label><div><input class="field field-small" id="ruleFallback" placeholder="留空使用自定义 MATCH、外部 FINAL 或 DIRECT"><div class="actions input-actions"><button class="secondary" id="previewRules" disabled>预览本地规则</button><label class="inline-check"><input type="checkbox" id="skipUnsupportedRules" checked>跳过外部 URL-REGEX / USER-AGENT</label></div><div class="hint" id="ruleSummary">顺序：自定义规则 → 外部导入规则 → 最终兜底。</div><textarea class="field code" id="ruleResults" readonly hidden aria-label="最终规则顺序"></textarea></div></div>
 <div class="row"><div></div><div class="actions"><button class="secondary" id="saveOptions" disabled>保存转换设置</button><span class="options-note">保存设置不会修改订阅来源或自建节点。</span></div></div>
 </div>
 <div class="divider"></div>
-<div class="row"><div class="label">生成订阅</div><div class="notice">订阅配置生成暂不可用。目前可以读取订阅、导入直接节点到当前页面、保存转换设置。</div></div>
-<div class="output-actions"><button class="primary" id="generate" disabled>生成订阅</button></div>
-<div class="row"><label for="convertedUrl">订阅地址</label><div class="output-box"><input class="field" id="convertedUrl" readonly placeholder="生成后显示订阅地址"><button class="secondary" disabled>复制</button><button class="secondary" disabled>导入客户端</button></div></div>
+<div class="row"><div class="label">生成订阅</div><div class="notice" id="generationSummary">生成完整 Mihomo 配置并保存下载快照。默认优先低倍率；指定 AI 出口后只使用该自建节点。</div></div>
+<div class="output-actions actions"><button class="secondary" id="previewGeneration" disabled>预览分组与规则</button><button class="primary" id="generate" disabled>生成订阅</button><label class="inline-check"><input type="checkbox" id="refreshGeneration">生成前刷新来源</label></div>
+<div class="row"><label for="convertedUrl">订阅地址</label><div><div class="output-box"><input class="field" id="convertedUrl" readonly placeholder="生成后显示订阅地址"><button class="secondary" id="copyUrl" disabled>复制</button><button class="secondary" id="downloadConfig" disabled>下载 YAML</button><button class="secondary" id="importClient" disabled>导入客户端</button></div><label class="inline-check hint"><input type="checkbox" id="refreshDownload" disabled>客户端更新订阅时刷新来源</label><div class="hint">地址固定本次转换设置。修改设置后请重新生成。</div></div></div>
+<details id="generationDetails" hidden><summary>生成结果与代理组</summary><div class="hint" id="generationCounts"></div><div id="generatedGroups"></div></details>
 </section>
 <footer>clash_ACL · 自建 Mihomo 订阅转换</footer>
 </main>
@@ -45,7 +47,16 @@
 let requestQuery = '';
 let nodePreviews = {};
 let statusTimer;
+const excludedURLs = new Set();
 const byId = id => document.getElementById(id);
+function subscriptionURLs() { return [...new Set(byId('subscriptionInput').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean))]; }
+function selectedURLs() { const urls=subscriptionURLs();return byId('aggregate').checked ? urls.filter(value=>!excludedURLs.has(value)) : urls.slice(0,1); }
+const subscriptionSelection=document.createElement('div');subscriptionSelection.className='actions input-actions';byId('subscriptionInput').after(subscriptionSelection);
+function renderSubscriptionSelection() {
+  subscriptionSelection.replaceChildren();
+  subscriptionURLs().forEach((url,index)=>{const label=document.createElement('label');label.className='inline-check';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.disabled=!byId('aggregate').checked;checkbox.checked=byId('aggregate').checked ? !excludedURLs.has(url) : index===0;checkbox.addEventListener('change',()=>{if(checkbox.checked)excludedURLs.delete(url);else excludedURLs.add(url);invalidateSubscription();});label.append(checkbox,document.createTextNode('订阅 '+(index+1)));subscriptionSelection.append(label);});
+}
+byId('subscriptionInput').addEventListener('input',renderSubscriptionSelection);byId('aggregate').addEventListener('change',renderSubscriptionSelection);
 function message(text, type = '') { byId('message').textContent = text; byId('message').className = 'message ' + type; }
 async function api(path, options = {}) {
   const response = await fetch(path, {...options, cache: 'no-store'});
@@ -91,7 +102,7 @@ byId('refreshSources').addEventListener('click', async () => {
   clearTimeout(statusTimer);
   byId('refreshSources').disabled = true;
   try {
-    const urls = [...new Set(byId('subscriptionInput').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean))];
+    const urls = selectedURLs();
     if (!urls.length) throw new Error('请输入至少一个订阅地址。');
     const query = new URLSearchParams({aggregate:String(byId('aggregate').checked)});
     urls.forEach(value=>query.append('url',value));
@@ -130,20 +141,32 @@ function renderRenameRules() {
   renameRules.forEach((rule,index) => { const row=document.createElement('div'); row.className='rename-row';
     [['match','匹配内容'],['replacement','替换为']].forEach(([key,label])=>{const input=document.createElement('input');input.className='field';input.value=rule[key]||'';input.placeholder=label;input.setAttribute('aria-label',label);input.addEventListener('input',()=>rule[key]=input.value);row.append(input);});
     const mode=document.createElement('select');mode.className='field';mode.setAttribute('aria-label','替换方式');[['false','文本'],['true','正则']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;mode.append(option);});mode.value=String(!!rule.regex);mode.addEventListener('change',()=>rule.regex=mode.value==='true');
-    const remove=document.createElement('button');remove.className='secondary';remove.textContent='×';remove.setAttribute('aria-label','移除重命名规则');remove.addEventListener('click',()=>{renameRules.splice(index,1);renderRenameRules();});row.append(mode,remove);byId('renameRules').append(row);
+    const remove=document.createElement('button');remove.className='secondary';remove.textContent='×';remove.setAttribute('aria-label','移除重命名规则');remove.addEventListener('click',()=>{renameRules.splice(index,1);renderRenameRules();invalidateSubscription();});row.append(mode,remove);byId('renameRules').append(row);
   });
 }
 async function loadConversionOptions() {
   byId('saveOptions').disabled=true; byId('addRename').disabled=true;
   const data=await api('/api/options'); const options=data.options;
   renameRules=structuredClone(options.rename_rules||[]);renderRenameRules();byId('ratePattern').value=options.rate_pattern||'';byId('aiDomains').value=(options.ai.domains||[]).join('\n');byId('groupSettings').value=options.groups_json||'[]';
-  byId('aiNode').replaceChildren();const empty=document.createElement('option');empty.value='';empty.textContent='未指定';byId('aiNode').append(empty);
-  byId('countSelf').textContent=data.self_hosted_nodes.length;
-  selfHostedNames=data.self_hosted_nodes.map(node=>node.name).filter(Boolean);
-  data.self_hosted_nodes.forEach((node,index)=>{const option=document.createElement('option');option.value=node.id;option.textContent=node.name||'自建节点 '+(index+1);byId('aiNode').append(option);});
-  byId('aiNode').value=options.ai.node_id||'';byId('aiNode').disabled=false;byId('saveOptions').disabled=false;byId('addRename').disabled=false;
+  renderSelfHostedChoices(data.self_hosted_nodes,options.ai.node_id||'');byId('saveOptions').disabled=false;byId('addRename').disabled=false;
 }
-byId('addRename').addEventListener('click',()=>{renameRules.push({match:'',replacement:'',regex:false});renderRenameRules();});
+function renderSelfHostedChoices(nodes,selected) {
+  byId('aiNode').replaceChildren();const empty=document.createElement('option');empty.value='';empty.textContent='未指定';byId('aiNode').append(empty);
+  byId('countSelf').textContent=nodes.length;selfHostedNames=nodes.map(node=>node.name).filter(Boolean);
+  nodes.forEach((node,index)=>{const option=document.createElement('option');option.value=node.id;option.textContent=node.name||'自建节点 '+(index+1);byId('aiNode').append(option);});
+  byId('aiNode').value=nodes.some(node=>node.id===selected)?selected:'';byId('aiNode').disabled=false;
+}
+byId('loadSelfHosted').addEventListener('click',async()=>{
+  byId('loadSelfHosted').disabled=true;
+  try{const data=await api('/api/self-hosted');byId('selfHostedSettings').value=data.nodes_json;byId('saveSelfHosted').disabled=false;byId('selfHostedSummary').textContent='已读取自建节点参数，编辑后点击保存。';}
+  catch(error){byId('selfHostedSummary').textContent=error.message;}finally{byId('loadSelfHosted').disabled=false;}
+});
+byId('saveSelfHosted').addEventListener('click',async()=>{
+  byId('saveSelfHosted').disabled=true;
+  try{await api('/api/self-hosted',{method:'PUT',headers:{'Content-Type':'application/json'},body:byId('selfHostedSettings').value});const selected=byId('aiNode').value;const data=await api('/api/options');renderSelfHostedChoices(data.self_hosted_nodes,selected);invalidateSubscription();byId('selfHostedSummary').textContent='自建节点已保存，AI 出口列表已更新。重新生成订阅后生效。';}
+  catch(error){byId('selfHostedSummary').textContent=error.message;}finally{byId('saveSelfHosted').disabled=false;}
+});
+byId('addRename').addEventListener('click',()=>{renameRules.push({match:'',replacement:'',regex:false});renderRenameRules();invalidateSubscription();});
 byId('saveOptions').addEventListener('click',async()=>{
   byId('saveOptions').disabled=true;
   try { const options={rename_rules:renameRules,rate_pattern:byId('ratePattern').value.trim(),ai:{node_id:byId('aiNode').value,domains:byId('aiDomains').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean)},groups_json:byId('groupSettings').value};await api('/api/options',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(options)});message('转换设置已保存。','success'); }
@@ -179,15 +202,17 @@ byId('useURI').addEventListener('click', () => {
   confirmedURIs = parsedURILines.filter(line=>!line.error).map(line=>original[line.line-1].trim());
   byId('uriSummary').textContent = '已在当前页面使用 ' + confirmedURIs.length + ' 个有效节点；失败行未导入。';
   byId('useURI').disabled = true;
+  invalidateSubscription();
 });
 byId('clearURI').addEventListener('click', () => {
   confirmedURIs=[]; parsedURILines=[]; parsedURIText=''; byId('uriText').value=''; byId('uriResults').replaceChildren(); byId('useURI').disabled=true;
   byId('uriSummary').textContent='尚未导入直接节点。链接只保留在当前页面，刷新页面后清空。';
+  invalidateSubscription();
 });
 byId('previewAggregate').addEventListener('click', async () => {
   byId('previewAggregate').disabled=true; byId('aggregateResults').replaceChildren();
   try {
-    const urls = [...new Set(byId('subscriptionInput').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean))];
+    const urls = selectedURLs();
     const data=await api('/api/aggregate/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({urls,aggregate:byId('aggregate').checked,direct_links:confirmedURIs.join('\n'),policy:{rename_rules:renameRules,rate_pattern:byId('ratePattern').value.trim()}})});
     const cached=data.sources.filter(source=>source.using_cache).length;
     byId('aggregateSummary').textContent='输入 '+data.input_count+' 个节点，去重后 '+data.node_count+' 个，合并重复 '+data.duplicate_count+' 个。低 '+data.rate_counts.low+' / 标准 '+data.rate_counts.standard+' / 高 '+data.rate_counts.high+'；未识别 '+data.rate_counts.unknown+'；倍率冲突 '+data.rate_counts.conflicts+'。'+(cached ? cached+' 个来源使用最近成功缓存。' : '');
@@ -214,8 +239,47 @@ async function loadRulePresets() {
  data.presets.forEach(preset=>{const option=document.createElement('option');option.value=preset.id;option.textContent=preset.name;byId('rulePreset').append(option);});
  const none=document.createElement('option');none.value='none';none.textContent='只使用自定义规则';byId('rulePreset').append(none);
  byId('rulePreset').disabled=false;byId('previewRules').disabled=false;
+ byId('presetDescription').textContent=byId('rulePreset').selectedOptions[0].textContent+' · 本地内置规则。';
 }
-Promise.all([loadConversionOptions(),loadRulePresets()]).catch(error=>message(error.message,'error'));
+byId('rulePreset').addEventListener('change',()=>{byId('presetDescription').textContent=byId('rulePreset').selectedOptions[0].textContent+' · 本地内置规则。';});
+let generationRevision=0;
+let generatedPath='';
+function invalidateSubscription() {
+  generationRevision++;
+  if(generatedPath) byId('generationSummary').textContent='输入已修改，请重新生成订阅。';
+  generatedPath='';byId('convertedUrl').value='';byId('generationDetails').hidden=true;
+  ['copyUrl','downloadConfig','importClient','refreshDownload'].forEach(id=>byId(id).disabled=true);
+}
+document.querySelector('.converter').addEventListener('input',event=>{if(event.target.id!=='refreshDownload' && event.target.id!=='selfHostedSettings')invalidateSubscription();});
+document.querySelector('.converter').addEventListener('change',event=>{if(event.target.id!=='refreshDownload' && event.target.id!=='selfHostedSettings')invalidateSubscription();});
+function generationRequest() {
+  const groups=JSON.parse(byId('groupSettings').value||'[]');if(!Array.isArray(groups))throw new Error('代理组需要 JSON 数组。');
+  const policyMap=JSON.parse(byId('policyMap').value||'{}');if(!policyMap || Array.isArray(policyMap) || typeof policyMap!=='object' || Object.values(policyMap).some(value=>typeof value!=='string'))throw new Error('模板策略映射需要字符串值的 JSON 对象。');
+  return {urls:selectedURLs(),aggregate:byId('aggregate').checked,direct_links:confirmedURIs.join('\n'),policy:{rename_rules:renameRules,rate_pattern:byId('ratePattern').value.trim()},ai:{node_id:byId('aiNode').value,domains:byId('aiDomains').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean)},groups_json:byId('groupSettings').value||'[]',rules:{preset:byId('rulePreset').value,custom_rules:byId('customRules').value.split(/\r?\n/),policy_map:policyMap,fallback:byId('ruleFallback').value.trim(),skip_unsupported:byId('skipUnsupportedRules').checked}};
+}
+function renderGenerationPreview(preview) {
+  const counts={low:0,standard:0,high:0};preview.nodes.forEach(node=>counts[node.rate_group]++);
+  byId('generationCounts').textContent=preview.nodes.length+' 个节点 · 低 '+counts.low+' / 标准 '+counts.standard+' / 高 '+counts.high+' · '+preview.groups.length+' 个代理组 · '+preview.rule_count+' 条规则 · 兼容跳过 '+preview.skipped_rules.length+' 条';
+  byId('generatedGroups').replaceChildren();preview.groups.forEach(group=>{const row=document.createElement('div');row.className='node-row';const name=document.createElement('span');name.textContent=group.name+' · '+group.type;const members=document.createElement('span');members.textContent=group.proxies.join('、');row.append(name,members);byId('generatedGroups').append(row);});byId('generationDetails').hidden=false;
+}
+function updateDownloadAddress() { if(generatedPath)byId('convertedUrl').value=new URL(generatedPath+(byId('refreshDownload').checked?'&refresh=true':''),location.href).href; }
+byId('refreshDownload').addEventListener('change',updateDownloadAddress);
+byId('previewGeneration').addEventListener('click',async()=>{
+  byId('previewGeneration').disabled=true;const revision=generationRevision;
+  try{const preview=await api('/api/generate/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(generationRequest())});if(revision!==generationRevision)return;renderGenerationPreview(preview);byId('generationSummary').textContent='分组与规则预览成功。点击生成订阅以保存下载快照。';}
+  catch(error){byId('generationSummary').textContent=error.message;}finally{byId('previewGeneration').disabled=false;}
+});
+byId('generate').addEventListener('click',async()=>{
+  byId('generate').disabled=true;byId('generate').textContent='正在生成…';invalidateSubscription();const revision=generationRevision;
+  try{const data=await api('/api/generate'+(byId('refreshGeneration').checked?'?refresh=true':''),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(generationRequest())});if(revision!==generationRevision){message('输入已修改，请按当前设置重新生成。');return;}generatedPath=data.download_path;updateDownloadAddress();renderGenerationPreview(data.preview);['copyUrl','downloadConfig','importClient','refreshDownload'].forEach(id=>byId(id).disabled=false);byId('generationSummary').textContent='订阅已生成 · '+new Date(data.generated_at).toLocaleString()+(data.using_cache?' · 部分来源读取失败，使用最近成功缓存。':'');message('完整 Mihomo 订阅已生成。','success');}
+  catch(error){byId('generationSummary').textContent=error.message;message(error.message,'error');}finally{byId('generate').disabled=false;byId('generate').textContent='生成订阅';}
+});
+byId('copyUrl').addEventListener('click',async()=>{
+  try{if(navigator.clipboard && window.isSecureContext)await navigator.clipboard.writeText(byId('convertedUrl').value);else{byId('convertedUrl').select();if(!document.execCommand('copy'))throw new Error('请手动选择并复制订阅地址。');}message('订阅地址已复制。','success');}catch(error){message('请手动选择并复制订阅地址。','error');}
+});
+byId('downloadConfig').addEventListener('click',()=>{if(generatedPath)location.href=byId('convertedUrl').value;});
+byId('importClient').addEventListener('click',()=>{if(generatedPath)location.href='clash://install-config?url='+encodeURIComponent(byId('convertedUrl').value);});
+Promise.all([loadConversionOptions(),loadRulePresets()]).then(()=>{byId('generate').disabled=false;byId('previewGeneration').disabled=false;}).catch(error=>message(error.message,'error'));
 
 </script>
 </body>

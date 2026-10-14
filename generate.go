@@ -22,6 +22,7 @@ type GenerationRequest struct {
 	Policy      *NodePolicyOptions `json:"policy,omitempty"`
 	AI          *AIPolicy          `json:"ai,omitempty"`
 	Groups      *[]map[string]any  `json:"groups,omitempty"`
+	GroupsJSON  *string            `json:"groups_json,omitempty"`
 	Rules       RuleRequest        `json:"rules"`
 }
 
@@ -46,6 +47,17 @@ func decodeGenerationRequest(reader io.Reader) (GenerationRequest, error) {
 	var extra any
 	if err := decoder.Decode(&extra); err != io.EOF {
 		return GenerationRequest{}, errors.New("expected one generation request object")
+	}
+	if request.GroupsJSON != nil {
+		if request.Groups != nil {
+			return GenerationRequest{}, errors.New("use either groups or groups_json")
+		}
+		data, _ := json.Marshal(ConversionOptions{GroupsJSON: *request.GroupsJSON})
+		_, groups, err := decodeOptions(bytes.NewReader(data))
+		if err != nil {
+			return GenerationRequest{}, err
+		}
+		request.Groups, request.GroupsJSON = &groups, nil
 	}
 	return *request, nil
 }
@@ -177,6 +189,12 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 			}
 			if _, exists := self.Proxy["dialer-proxy"]; exists {
 				return nil, preview, errors.New("AI fixed node cannot use another proxy as its dialer")
+			}
+			server, _ := self.Proxy["server"].(string)
+			port, portErr := strconv.Atoi(fmt.Sprint(self.Proxy["port"]))
+			kind, _ := self.Proxy["type"].(string)
+			if server == "" || portErr != nil || port < 1 || port > 65535 || containsString([]string{"direct", "reject", "dns", "compatible"}, strings.ToLower(kind)) {
+				return nil, preview, errors.New("AI fixed node requires a proxy server and valid port")
 			}
 			id, err := nodeIdentity(self.Proxy)
 			if err != nil {
