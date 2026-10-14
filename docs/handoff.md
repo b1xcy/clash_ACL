@@ -8,6 +8,10 @@
 - 快照生成版本更新为 ai-self-v3，旧订阅下载使用已保存节点重建并获得直连选项，无需刷新来源。
 - 已更新现有多出口、AnyTLS 链式及全部模板自建出口测试预期。Go 全量 test/build/vet、Vite build、`docker build -t clash-acl:local .`、git diff --check 通过；本次环境未配置 Mihomo 内核，未运行内核配置校验。不做真实连通性检测。仅本地提交，不 push 或发布。
 
+## v1.2 发布
+
+- 用户已授权打版本标签并推送发布，本次使用 v1.2，包含 AI 前置 DIRECT 选项和旧订阅快照重建。Release 说明同步加入此项能力，沿用 GHCR 镜像、Linux amd64 包、完整源码 ZIP 和 SHA256SUMS 发布流程。
+
 ## 按来源过滤 HTTP/SOCKS
 
 - 用户纠正原过滤范围：仅去除 HTTP/SOCKS，VLESS 等其他协议保留。原实现按加密状态扩大至 VLESS/VMess/SS 已撤回；现在按类型去除 http/socks4/socks5，包含 TLS 变体，页面明确写协议名称，不把保留的公共节点视为可信。
