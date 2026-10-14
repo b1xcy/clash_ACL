@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"net/http"
@@ -8,7 +9,109 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
+
+func TestCountryFlagsAndBoundaries(t *testing.T) {
+	for _, item := range []struct{ name, expected string }{
+		{"SG01 0.5x", "🇸🇬 SG01 0.5x"}, {"CN节点", "🇨🇳 CN节点"}, {"HK-02", "🇭🇰 HK-02"},
+		{"TW 台湾", "🇹🇼 TW 台湾"}, {"JP 2x", "🇯🇵 JP 2x"}, {"Japan Tokyo", "🇯🇵 Japan Tokyo"},
+		{"Hong Kong", "🇭🇰 Hong Kong"}, {"台灣", "🇹🇼 台灣"}, {"USA", "🇺🇸 USA"}, {"UK London", "🇬🇧 UK London"},
+		{"South Korea", "🇰🇷 South Korea"}, {"Indonesia", "🇮🇩 Indonesia"}, {"South Africa", "🇿🇦 South Africa"},
+		{"阿联酋", "🇦🇪 阿联酋"}, {"sg 01", "🇸🇬 sg 01"}, {"🇯🇵 JP", "🇯🇵 JP"},
+		{"design assign", "design assign"}, {"SS Exit", "SS Exit"}, {"AI Exit", "AI Exit"}, {"Unknown", "Unknown"},
+	} {
+		if got := flagNodeName(item.name, nil); got != item.expected || flagNodeName(got, nil) != got {
+			t.Fatalf("flag %q = %q, expected %q", item.name, got, item.expected)
+		}
+	}
+	for _, line := range strings.Split(strings.TrimSpace(countryNames), "\n") {
+		parts := strings.Split(line, "|")
+		expected := string([]rune{0x1f1e6 + rune(parts[0][0]-'A'), 0x1f1e6 + rune(parts[0][1]-'A')})
+		if countryFlag(parts[1]) != expected {
+			t.Fatalf("English country name not recognized: %s", parts[1])
+		}
+	}
+}
+
+func TestSelfHostedImportZeroRateTelegramAndAI(t *testing.T) {
+	links := importedEntry + "\n" + importedAnyTLS + "\n" + importedAnyTLS
+	id := parseURILines(importedAnyTLS)[0].NodeID
+	policy := NodePolicyOptions{SelfHostedIDs: []string{id}, RateOverrides: map[string]float64{id: 2}}
+	presets := []string{"none"}
+	for _, preset := range rulePresets {
+		presets = append(presets, preset.ID)
+	}
+	for _, preset := range presets {
+		t.Run(preset, func(t *testing.T) {
+			request := GenerationRequest{DirectLinks: links, Policy: &policy, AI: &AIPolicy{NodeID: id, Chain: true}, Rules: RuleRequest{Preset: preset, SkipUnsupported: true}}
+			output, preview, err := generateConfig(context.Background(), newSourceManager(t.TempDir()), defaultConfig(), request, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(preview.Nodes) != 2 {
+				t.Fatal("self marking broke deduplication")
+			}
+			for _, node := range preview.Nodes {
+				if node.ID == id && (node.Rate == nil || *node.Rate != 0 || node.RateGroup != "self" || node.RateSource != "self_hosted") {
+					t.Fatal("self marking lost zero rate")
+				}
+			}
+			telegram := ""
+			for _, group := range preview.Groups {
+				members, _ := stringList(group["proxies"])
+				switch group["name"] {
+				case selfGroup:
+					if len(members) != 1 || members[0] != "Private Exit" || group["type"] != "select" {
+						t.Fatal("self group includes another route")
+					}
+				case telegramGroup, "📲 电报信息":
+					if !containsString(members, selfGroup) {
+						t.Fatal("Telegram cannot select self route")
+					}
+					telegram = group["name"].(string)
+				case aiChainGroup:
+					if len(members) != 1 || members[0] != "Entry 0.5x" {
+						t.Fatal("self exit introduced AI loop")
+					}
+				case mainGroup:
+					if members[0] != lowGroup {
+						t.Fatal("ordinary low-rate default changed")
+					}
+				}
+			}
+			var document struct {
+				Rules []string `yaml:"rules"`
+			}
+			if err := yaml.Unmarshal(output, &document); err != nil {
+				t.Fatal(err)
+			}
+			text := strings.Join(document.Rules, "\n")
+			for _, rule := range []string{"DOMAIN-SUFFIX,crixet.com," + aiGroup, "DOMAIN-SUFFIX,webpubsub.azure.com," + aiGroup, "DOMAIN-SUFFIX,claudemcpcontent.com," + aiGroup, "DOMAIN,browser-intake-us5-datadoghq.com," + aiGroup, "IP-CIDR,160.79.104.0/21," + aiGroup + ",no-resolve", "IP-CIDR6,2607:6bc0::/32," + aiGroup + ",no-resolve", "IP-ASN,399358," + aiGroup + ",no-resolve", "DOMAIN-SUFFIX,t.me," + telegram} {
+				if !strings.Contains(text, rule) {
+					t.Fatalf("missing service rule %s", rule)
+				}
+			}
+			validateImportedAIWithMihomo(t, output)
+		})
+	}
+	input := policyFixture(t, "HK 2x")
+	for _, ids := range [][]string{{"missing"}, {input.ID}} {
+		if _, err := applyNodePolicy([]AggregatedNode{input}, NodePolicyOptions{SelfHostedIDs: ids}); err == nil {
+			t.Fatal("invalid self marking accepted")
+		}
+	}
+	input.Origins[0].SourceID = "direct-links"
+	marked, err := applyNodePolicy([]AggregatedNode{input}, NodePolicyOptions{SelfHostedIDs: []string{input.ID}})
+	if err != nil || marked[0].RateConflict || *marked[0].Rate != 0 || marked[0].Name != "🇭🇰 HK 2x" || input.Name != "HK 2x" {
+		t.Fatal("name rate overrode explicit self marking or source mutated", err)
+	}
+	unmarked, err := applyNodePolicy([]AggregatedNode{input}, NodePolicyOptions{})
+	if err != nil || *unmarked[0].Rate != 2 || unmarked[0].RateGroup != "high" {
+		t.Fatal("clearing marking did not restore original rate", err)
+	}
+}
 
 func policyFixture(t *testing.T, names ...string) AggregatedNode {
 	t.Helper()
@@ -42,7 +145,7 @@ func TestRateClassificationBeforeRenameAndStableIdentity(t *testing.T) {
 			t.Fatal(err)
 		}
 		node := nodes[0]
-		if node.RateGroup != test.group || node.Name != "Final" || node.ID != input.ID || (node.Rate == nil) != (test.rate == nil) || (node.Rate != nil && *node.Rate != *test.rate) {
+		if node.RateGroup != test.group || node.Name != "🇭🇰 Final" || node.ID != input.ID || (node.Rate == nil) != (test.rate == nil) || (node.Rate != nil && *node.Rate != *test.rate) {
 			t.Fatalf("wrong rate or identity: %#v", node)
 		}
 		if input.Name != test.name || input.Proxy["name"] != test.name || node.Origins[0].OriginalName != test.name {
@@ -83,7 +186,7 @@ func TestRenamingScopeOrderAndCollisionResolution(t *testing.T) {
 	two.ID = id
 	options := NodePolicyOptions{RenameRules: []RenameRule{{SourceID: "other", Match: "HK", Replacement: "Wrong"}, {Match: "HK", Replacement: "香港"}, {Match: `香港_(\d+)`, Replacement: "Same", Regex: true}}}
 	nodes, err := applyNodePolicy([]AggregatedNode{one, two}, options)
-	if err != nil || nodes[0].Name != "Same" || nodes[1].Name == "Same" || nodes[0].ID != one.ID || nodes[1].ID != two.ID {
+	if err != nil || nodes[0].Name != "🇭🇰 Same" || nodes[1].Name == "🇭🇰 Same" || nodes[0].ID != one.ID || nodes[1].ID != two.ID {
 		t.Fatal("rename order/scope or collision behavior failed")
 	}
 	if one.Name != "HK_01" || two.Name != "HK_02" {
@@ -120,7 +223,7 @@ func TestAggregationPolicyAPIClassifiesAndRenames(t *testing.T) {
 		Nodes  []AggregatedNode `json:"nodes"`
 		Counts map[string]int   `json:"rate_counts"`
 	}
-	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || response.Code != http.StatusOK || result.Counts["low"] != 1 || result.Counts["standard"] != 1 || result.Counts["unknown"] != 1 || !strings.HasPrefix(result.Nodes[0].Name, "香港") {
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || response.Code != http.StatusOK || result.Counts["low"] != 1 || result.Counts["standard"] != 1 || result.Counts["unknown"] != 1 || !strings.HasPrefix(result.Nodes[0].Name, "🇭🇰 香港") {
 		t.Fatalf("policy API failed: %s", response.Body.String())
 	}
 	if strings.Contains(response.Body.String(), "synthetic-secret") || strings.Contains(response.Body.String(), "example.invalid") {

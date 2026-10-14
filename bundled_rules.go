@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-//go:embed rules/ACL4SSR
+//go:embed rules/ACL4SSR rules/AI
 var bundledRules embed.FS
 
 type RulePreset struct {

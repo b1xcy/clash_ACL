@@ -15,19 +15,18 @@
 <section class="panel converter">
 <div class="tabs" role="tablist"><button class="tab active" id="basicTab" role="tab" aria-selected="true">基础模式</button><button class="tab" id="advancedTab" role="tab" aria-selected="false">进阶模式</button></div>
 <div class="row"><label for="subscriptionInput">订阅链接</label><div><textarea class="field" id="subscriptionInput" rows="5" spellcheck="false" placeholder="https://example.com/subscribe?token=...&#10;https://example.net/clash.yaml"></textarea><div class="hint">每行一个 Clash / Mihomo YAML 订阅地址。关闭聚合时只使用第一行。</div><div class="actions input-actions"><label class="inline-check"><input type="checkbox" id="aggregate" checked>聚合多个订阅</label><button class="secondary" id="refreshSources">读取订阅</button></div><details class="source-summary"><summary>本次 <span id="countSources">0</span> 个来源 · 启用 <span id="countEnabled">0</span> 个</summary><div class="source-list" id="sourceList"><p class="muted">输入订阅地址后点击读取订阅。</p></div><div class="actions input-actions"><button class="secondary" id="reload" disabled>更新来源状态</button><button class="secondary" id="yamlPreview">本地 YAML 预览</button></div></details></div></div>
-<div class="row"><label for="uriText">直接节点链接</label><div><details><summary>导入 SS / TUIC / VLESS / VMess / Trojan / Hysteria2 / AnyTLS</summary><textarea class="field" id="uriText" rows="4" spellcheck="false" placeholder="每行一个协议链接，可混合多种协议"></textarea><div class="actions input-actions"><button class="secondary" id="previewURI">解析预览</button><button class="secondary" id="useURI" disabled>使用有效节点</button><button class="secondary" id="clearURI">清空导入</button></div><div class="hint" id="uriSummary">尚未导入直接节点。链接只保留在当前页面，刷新页面后清空。</div><div id="uriResults"></div></details></div></div>
-<div class="row"><div class="label">节点聚合</div><div><button class="secondary" id="previewAggregate">预览聚合、倍率与重命名</button><div class="hint" id="aggregateSummary">使用本次订阅与已确认的直接节点，不保存服务器来源配置。</div><div id="aggregateResults"></div></div></div>
+<div class="row"><label for="uriText">直接节点链接</label><div><details><summary>导入 SS / TUIC / VLESS / VMess / Trojan / Hysteria2 / AnyTLS</summary><textarea class="field" id="uriText" rows="4" spellcheck="false" placeholder="每行一个协议链接，可混合多种协议"></textarea><div class="actions input-actions"><button class="secondary" id="previewURI">重新解析</button><button class="secondary" id="clearURI">清空导入</button></div><div class="hint" id="uriSummary">粘贴后自动导入有效节点；可逐个标记为自建（0 倍率）。链接只保留在当前页面。</div><div id="uriResults"></div></details></div></div>
+<div class="row"><div class="label">节点聚合</div><div><button class="secondary" id="previewAggregate">更新聚合预览</button><div class="hint" id="aggregateSummary">添加链接后自动读取、解析与聚合，不保存服务器来源配置。</div><div id="aggregateResults"></div></div></div>
 <div class="row"><label for="target">客户端</label><div><select class="field field-small" id="target"><option value="mihomo">Mihomo / Clash.Meta</option></select></div></div>
 <div class="row"><label for="rulePreset">内置规则方案</label><div><select class="field" id="rulePreset" disabled><option>正在读取本地方案…</option></select><div class="hint" id="presetDescription">ACL4SSR 本地规则随镜像发布，无需填写远程地址。</div></div></div>
 <div class="row"><div class="label">规则更新</div><div><button class="secondary" id="updateRules" disabled>立即检查上游</button><div class="hint" id="ruleUpdateStatus" role="status">正在读取规则版本…</div></div></div>
 <div id="advancedOptions" hidden>
 <div class="divider"></div>
-<div class="row"><div class="label">倍率分组</div><div><div class="rate-info"><span>低倍率 &lt; 1x</span><span>标准倍率 = 1x / 未识别</span><span>高倍率 &gt; 1x</span></div></div></div>
+<div class="row"><div class="label">倍率分组</div><div><div class="rate-info"><span>自建 = 0x（手动标记）</span><span>低倍率 &lt; 1x</span><span>标准倍率 = 1x / 未识别</span><span>高倍率 &gt; 1x</span></div></div></div>
 <div class="row"><label for="ratePattern">倍率识别规则</label><div><input class="field" id="ratePattern" spellcheck="false" placeholder="留空自动识别：倍率:0.5 / 0.5x / 0.5倍"><div class="hint">自定义正则的第一个捕获组需为数字。同节点倍率冲突按较高值处理并提示；从原始名称识别后才执行重命名。</div></div></div>
 <div class="row"><div class="label">节点重命名</div><div><div id="renameRules"></div><button class="secondary" id="addRename" disabled>＋ 添加替换规则</button><div class="hint">按顺序执行。可使用文本替换或正则替换。</div></div></div>
-<div class="row"><label for="aiNode">AI 固定出口</label><div><select class="field field-small" id="aiNode" disabled><option value="">未指定</option></select><div class="hint">可选已确认的协议链接节点、已读取的订阅节点或已保存自建节点。已保存 <span id="countSelf">0</span> 个自建节点。</div></div></div>
+<div class="row"><label for="aiNode">AI 固定出口</label><div><select class="field field-small" id="aiNode" disabled><option value="">未指定</option></select><div class="hint">可选链接导入或订阅中的节点，不限定协议。默认包含 ChatGPT/Codex、Claude 的核心、CDN、认证与遥测分流。</div></div></div>
 <div class="row"><div class="label">AI 链式代理</div><div><label class="inline-check"><input type="checkbox" id="aiChain">通过前置节点连接 AI 出口</label><div class="hint">生成「🔗 AI 前置选择」组，可在 Clash Verge 中手动切换其他节点。链路：前置节点 → 所选 VPS → AI 平台；最终出口始终为所选 VPS，规则照常保留。TUIC/Hysteria2 出口需选择支持 UDP 转发的前置节点。</div></div></div>
-<div class="row"><div class="label">自建节点</div><div><details><summary>编辑自建节点参数</summary><div class="actions input-actions"><button class="secondary" id="loadSelfHosted">读取自建节点</button><button class="secondary" id="saveSelfHosted" disabled>保存自建节点</button></div><textarea class="field code" id="selfHostedSettings" spellcheck="false" placeholder='[{"id":"fixed","proxy":{"name":"固定出口","type":"ss","server":"example.com","port":443,"cipher":"aes-128-gcm","password":"..."}}]'></textarea><div class="hint" id="selfHostedSummary">先读取已有节点，再编辑 JSON 数组。参数保留完整 Mihomo 字段；删除已绑定 AI 的节点前须先解除 AI 绑定并保存转换设置。</div></details></div></div>
 <div class="row"><label for="aiDomains">AI 服务域名</label><div><textarea class="field" id="aiDomains" rows="3" spellcheck="false" placeholder="openai.com&#10;chatgpt.com&#10;claude.ai"></textarea><div class="hint">每行一个域名。中转站等其他服务按需要单独添加。</div></div></div>
 <div class="row"><label for="groupSettings">代理组配置</label><div><textarea class="field code" id="groupSettings" spellcheck="false" placeholder='[{"name":"自选低倍率","type":"select","rate_groups":["low"]}]'>[]</textarea><div class="hint">JSON 数组，可用 proxies、node_ids 指定成员，或用 filter、source_ids、rate_groups 筛选节点。相同模板组名以这里为准；AI 与倍率组受保护。</div></div></div>
 <div class="row"><label for="customRules">自定义规则</label><div><textarea class="field code" id="customRules" spellcheck="false" placeholder="DOMAIN-SUFFIX,example.com,DIRECT"></textarea><div class="hint">每行一条完整 Mihomo 规则，优先于模板规则；指定 AI 出口后，AI 服务规则位于最前面。此处输入随本次生成地址保存。</div></div></div>
@@ -56,9 +55,9 @@ function selectedURLs() { const urls=subscriptionURLs();return byId('aggregate')
 const subscriptionSelection=document.createElement('div');subscriptionSelection.className='actions input-actions';byId('subscriptionInput').after(subscriptionSelection);
 function renderSubscriptionSelection() {
   subscriptionSelection.replaceChildren();
-  subscriptionURLs().forEach((url,index)=>{const label=document.createElement('label');label.className='inline-check';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.disabled=!byId('aggregate').checked;checkbox.checked=byId('aggregate').checked ? !excludedURLs.has(url) : index===0;checkbox.addEventListener('change',()=>{if(checkbox.checked)excludedURLs.delete(url);else excludedURLs.add(url);updateSubscriptionAIChoices();invalidateSubscription();});label.append(checkbox,document.createTextNode('订阅 '+(index+1)));subscriptionSelection.append(label);});
+  subscriptionURLs().forEach((url,index)=>{const label=document.createElement('label');label.className='inline-check';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.disabled=!byId('aggregate').checked;checkbox.checked=byId('aggregate').checked ? !excludedURLs.has(url) : index===0;checkbox.addEventListener('change',()=>{if(checkbox.checked)excludedURLs.delete(url);else excludedURLs.add(url);updateSubscriptionAIChoices();invalidateSubscription();scheduleSources();});label.append(checkbox,document.createTextNode('订阅 '+(index+1)));subscriptionSelection.append(label);});
 }
-byId('subscriptionInput').addEventListener('input',()=>{renderSubscriptionSelection();updateSubscriptionAIChoices();});byId('aggregate').addEventListener('change',()=>{renderSubscriptionSelection();updateSubscriptionAIChoices();});
+byId('subscriptionInput').addEventListener('input',()=>{renderSubscriptionSelection();updateSubscriptionAIChoices();scheduleSources();});byId('aggregate').addEventListener('change',()=>{renderSubscriptionSelection();updateSubscriptionAIChoices();scheduleSources();});
 function message(text, type = '') { byId('message').textContent = text; byId('message').className = 'message ' + type; }
 async function api(path, options = {}) {
   const response = await fetch(path, {...options, cache: 'no-store'});
@@ -89,7 +88,7 @@ function renderStatus(data,query=requestQuery) {
   const refreshing = data.sources.some(source => source.state === 'refreshing');
   byId('refreshSources').disabled = refreshing;
   byId('refreshSources').textContent = refreshing ? '正在读取…' : '读取订阅';
-  if (refreshing) statusTimer = setTimeout(loadStatus, 1500);
+  if (refreshing) statusTimer = setTimeout(loadStatus, 1500);else scheduleAggregate();
 }
 
 async function loadStatus() {
@@ -102,19 +101,22 @@ async function loadStatus() {
   finally { byId('reload').disabled = false; }
 }
 byId('reload').addEventListener('click', loadStatus);
-byId('refreshSources').addEventListener('click', async () => {
-  clearTimeout(statusTimer);
-  byId('refreshSources').disabled = true;
-  try {
-    const urls = selectedURLs();
-    if (!urls.length) throw new Error('请输入至少一个订阅地址。');
-    const query = new URLSearchParams({aggregate:String(byId('aggregate').checked)});
-    urls.forEach(value=>query.append('url',value));
-    requestQuery = query.toString();
-    renderStatus(await api('/api/subscriptions?' + requestQuery + '&refresh=true'));
-    message('订阅地址已通过请求参数传入，正在读取。','success');
-  } catch(error) { message(error.message,'error'); byId('refreshSources').disabled=false; }
-});
+let sourceTimer;
+function scheduleSources(){
+ clearTimeout(sourceTimer);clearTimeout(statusTimer);requestQuery='';subscriptionAIStatus=undefined;updateSubscriptionAIChoices();
+ byId('sourceList').replaceChildren();byId('countSources').textContent=selectedURLs().length;byId('countEnabled').textContent=selectedURLs().length;
+ sourceTimer=setTimeout(()=>readSources(false),650);scheduleAggregate();
+}
+async function readSources(refresh){
+ clearTimeout(sourceTimer);sourceTimer=undefined;clearTimeout(statusTimer);
+ const urls=selectedURLs();
+ if(!urls.length){requestQuery='';scheduleAggregate();return;}
+ const query=new URLSearchParams({aggregate:String(byId('aggregate').checked)});urls.forEach(value=>query.append('url',value));requestQuery=query.toString();const current=requestQuery;
+ byId('refreshSources').disabled=true;
+ try{let data=await api('/api/subscriptions?'+current+(refresh?'&refresh=true':''));if(current!==requestQuery)return;if(!refresh){const pending=data.sources.map((source,index)=>source.state==='pending'?urls[index]:null).filter(Boolean);if(pending.length){const fetchQuery=new URLSearchParams({aggregate:'true',refresh:'true'});pending.forEach(value=>fetchQuery.append('url',value));await api('/api/subscriptions?'+fetchQuery);if(current!==requestQuery)return;data=await api('/api/subscriptions?'+current);}}if(current===requestQuery)renderStatus(data,current);}
+ catch(error){if(current===requestQuery){message(error.message,'error');byId('refreshSources').disabled=false;}}
+}
+byId('refreshSources').addEventListener('click',()=>readSources(true));
 function renderNodes(nodes) {
   byId('nodePreview').replaceChildren();
   nodes.forEach(node => { const row = document.createElement('div'); row.className = 'node-row'; const name = document.createElement('span'); name.textContent = node.name; const type = document.createElement('span'); type.textContent = node.type; row.append(name, type); byId('nodePreview').append(row); });
@@ -160,11 +162,11 @@ async function loadConversionOptions() {
 }
 function renderSelfHostedChoices(nodes,selected) {
   savedAIChoices=nodes;
-  byId('countSelf').textContent=nodes.length;selfHostedNames=nodes.map(node=>node.name).filter(Boolean);renderAIChoices(selected);
+  selfHostedNames=nodes.map(node=>node.name).filter(Boolean);renderAIChoices(selected);
 }
 function renderAIChoices(selected=byId('aiNode').value) {
   byId('aiNode').replaceChildren();const empty=document.createElement('option');empty.value='';empty.textContent='未指定';byId('aiNode').append(empty);
-  const seen=new Set();for(const [label,nodes] of [['直接导入',directAIChoices],['订阅节点',subscriptionAIChoices],['已保存自建',savedAIChoices]]){const group=document.createElement('optgroup');group.label=label;nodes.forEach(node=>{if(!node.id || seen.has(node.id))return;seen.add(node.id);const option=document.createElement('option');option.value=node.id;option.textContent=node.name+(node.type?' · '+node.type:'');group.append(option);});if(group.children.length)byId('aiNode').append(group);}
+  const seen=new Set();for(const [label,nodes] of [['直接导入',directAIChoices],['订阅节点',subscriptionAIChoices],['已保存自建',savedAIChoices]]){const group=document.createElement('optgroup');group.label=label;nodes.forEach(node=>{if(!node.id || seen.has(node.id))return;seen.add(node.id);const option=document.createElement('option');option.value=node.id;option.textContent=node.name+(node.type?' · '+node.type:'')+(selfHostedIDs.has(node.id)?' · 自建 0x':'');group.append(option);});if(group.children.length)byId('aiNode').append(group);}
   if(selected && !seen.has(selected)){const missing=document.createElement('option');missing.value=selected;missing.textContent='所选节点当前不可用，请重新导入或更换';missing.disabled=true;byId('aiNode').append(missing);}
   byId('aiNode').value=selected;byId('aiNode').disabled=false;
 }
@@ -173,16 +175,6 @@ function updateSubscriptionAIChoices() {
   if(subscriptionAIStatus){const selected=new Set(selectedURLs());subscriptionAIStatus.data.sources.forEach((source,index)=>{if(selected.has(subscriptionAIStatus.urls[index]))subscriptionAIChoices.push(...(subscriptionAIStatus.data.previews[source.id]||[]));});}
   renderAIChoices();
 }
-byId('loadSelfHosted').addEventListener('click',async()=>{
-  byId('loadSelfHosted').disabled=true;
-  try{const data=await api('/api/self-hosted');byId('selfHostedSettings').value=data.nodes_json;byId('saveSelfHosted').disabled=false;byId('selfHostedSummary').textContent='已读取自建节点参数，编辑后点击保存。';}
-  catch(error){byId('selfHostedSummary').textContent=error.message;}finally{byId('loadSelfHosted').disabled=false;}
-});
-byId('saveSelfHosted').addEventListener('click',async()=>{
-  byId('saveSelfHosted').disabled=true;
-  try{await api('/api/self-hosted',{method:'PUT',headers:{'Content-Type':'application/json'},body:byId('selfHostedSettings').value});const selected=byId('aiNode').value;const data=await api('/api/options');renderSelfHostedChoices(data.self_hosted_nodes,selected);invalidateSubscription();byId('selfHostedSummary').textContent='自建节点已保存，AI 出口列表已更新。重新生成订阅后生效。';}
-  catch(error){byId('selfHostedSummary').textContent=error.message;}finally{byId('saveSelfHosted').disabled=false;}
-});
 byId('addRename').addEventListener('click',()=>{renameRules.push({match:'',replacement:'',regex:false});renderRenameRules();invalidateSubscription();});
 byId('saveOptions').addEventListener('click',async()=>{
   byId('saveOptions').disabled=true;
@@ -190,56 +182,49 @@ byId('saveOptions').addEventListener('click',async()=>{
   catch(error){message(error.message,'error');}finally{byId('saveOptions').disabled=false;}
 });
 
-let parsedURILines = [];
-let parsedURIText = '';
-let confirmedURIs = [];
-byId('uriText').addEventListener('input', () => { byId('useURI').disabled = true; byId('uriSummary').textContent='输入已修改，请重新解析预览；已导入 ' + confirmedURIs.length + ' 个节点。'; });
-byId('previewURI').addEventListener('click', async () => {
-  byId('previewURI').disabled = true; byId('useURI').disabled = true; byId('uriResults').replaceChildren();
-  const text = byId('uriText').value;
-  try {
-    const data = await api('/api/uri/preview', {method:'POST', headers:{'Content-Type':'text/plain'}, body:text});
-    if(byId('uriText').value !== text) return;
-    parsedURIText = text;
-    parsedURILines = data.lines;
-    data.lines.forEach(line => {
-      const row = document.createElement('div'); row.className = 'node-row';
-      const label = document.createElement('span'); label.textContent = '第 ' + line.line + ' 行 · ' + (line.error ? '解析失败' : line.name);
-      const result = document.createElement('span'); result.textContent = line.error || line.type; if(line.error) result.className='source-error';
-      row.append(label,result); byId('uriResults').append(row);
-    });
-    byId('uriSummary').textContent = data.valid_count + ' 行有效，' + data.error_count + ' 行失败。确认后仅使用有效行；已导入 ' + confirmedURIs.length + ' 个节点。';
-    byId('useURI').disabled = data.valid_count === 0 || byId('uriText').value !== parsedURIText;
-  } catch(error) { byId('uriSummary').textContent = error.message; }
-  finally { byId('previewURI').disabled = false; }
+let parsedURILines=[],parsedURIText=null,confirmedURIs=[];
+const selfHostedIDs=new Set();let uriTimer,uriJob,aggregateTimer,aggregateRevision=0;
+function nodePolicy(){return {rename_rules:renameRules,rate_pattern:byId('ratePattern').value.trim(),self_hosted_ids:[...selfHostedIDs].filter(id=>directAIChoices.some(node=>node.id===id))};}
+function renderImportedNodes(){
+ byId('uriResults').replaceChildren();
+ parsedURILines.forEach(line=>{
+  const row=document.createElement('div');row.className='node-row';const label=document.createElement('span');label.textContent='第 '+line.line+' 行 · '+(line.error?'解析失败':line.name);
+  const result=document.createElement('span');result.textContent=line.error||line.type;if(line.error)result.className='source-error';row.append(label,result);
+  if(!line.error){const marker=document.createElement('label');marker.className='inline-check';const check=document.createElement('input');check.type='checkbox';check.checked=selfHostedIDs.has(line.node_id);check.setAttribute('aria-label',line.name+' 自建（0 倍率）');check.addEventListener('change',()=>{if(check.checked)selfHostedIDs.add(line.node_id);else selfHostedIDs.delete(line.node_id);renderImportedNodes();renderAIChoices();invalidateSubscription();scheduleAggregate();});marker.append(check,document.createTextNode('自建（0 倍率）'));row.append(marker);}
+  byId('uriResults').append(row);
+ });
+}
+async function syncDirectLinks(){
+ clearTimeout(uriTimer);const text=byId('uriText').value;
+ if(text===parsedURIText)return;
+ if(uriJob?.text===text)return uriJob.promise;
+ const promise=(async()=>{
+  try{const data=text.trim()?await api('/api/uri/preview',{method:'POST',headers:{'Content-Type':'text/plain'},body:text}):{lines:[],valid_count:0,error_count:0};if(byId('uriText').value!==text)return;
+   parsedURIText=text;parsedURILines=data.lines;const original=text.split('\n');confirmedURIs=data.lines.filter(line=>!line.error).map(line=>original[line.line-1].trim());directAIChoices=data.lines.filter(line=>!line.error).map(line=>({id:line.node_id,name:line.name,type:line.type}));renderImportedNodes();renderAIChoices();
+   byId('uriSummary').textContent='已自动导入 '+data.valid_count+' 个有效节点；'+data.error_count+' 行失败，未导入。可勾选自建（0 倍率）。';scheduleAggregate();
+  }catch(error){if(byId('uriText').value===text){byId('uriSummary').textContent=error.message;throw error;}}
+ })();uriJob={text,promise};try{return await promise;}finally{if(uriJob?.promise===promise)uriJob=undefined;}
+}
+byId('uriText').addEventListener('input',()=>{
+ clearTimeout(uriTimer);confirmedURIs=[];directAIChoices=[];parsedURILines=[];parsedURIText=null;byId('uriResults').replaceChildren();renderAIChoices();byId('uriSummary').textContent='正在自动解析…';scheduleAggregate();uriTimer=setTimeout(()=>syncDirectLinks().catch(()=>{}),350);
 });
-byId('useURI').addEventListener('click', () => {
-  if(byId('uriText').value !== parsedURIText) return;
-  const original = parsedURIText.split('\n');
-  confirmedURIs = parsedURILines.filter(line=>!line.error).map(line=>original[line.line-1].trim());
-  directAIChoices=parsedURILines.filter(line=>!line.error).map(line=>({id:line.node_id,name:line.name,type:line.type}));renderAIChoices();
-  byId('uriSummary').textContent = '已在当前页面使用 ' + confirmedURIs.length + ' 个有效节点；失败行未导入。';
-  byId('useURI').disabled = true;
-  invalidateSubscription();
-});
-byId('clearURI').addEventListener('click', () => {
-  confirmedURIs=[]; parsedURILines=[]; parsedURIText=''; byId('uriText').value=''; byId('uriResults').replaceChildren(); byId('useURI').disabled=true;
-  directAIChoices=[];renderAIChoices();
-  byId('uriSummary').textContent='尚未导入直接节点。链接只保留在当前页面，刷新页面后清空。';
-  invalidateSubscription();
-});
-byId('previewAggregate').addEventListener('click', async () => {
-  byId('previewAggregate').disabled=true; byId('aggregateResults').replaceChildren();
-  try {
-    const urls = selectedURLs();
-    const data=await api('/api/aggregate/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({urls,aggregate:byId('aggregate').checked,direct_links:confirmedURIs.join('\n'),policy:{rename_rules:renameRules,rate_pattern:byId('ratePattern').value.trim()}})});
-    const cached=data.sources.filter(source=>source.using_cache).length;
-    byId('aggregateSummary').textContent='输入 '+data.input_count+' 个节点，去重后 '+data.node_count+' 个，合并重复 '+data.duplicate_count+' 个。低 '+data.rate_counts.low+' / 标准 '+data.rate_counts.standard+' / 高 '+data.rate_counts.high+'；未识别 '+data.rate_counts.unknown+'；倍率冲突 '+data.rate_counts.conflicts+'。'+(cached ? cached+' 个来源使用最近成功缓存。' : '');
-    data.nodes.forEach(node=>{const row=document.createElement('div');row.className='node-row';const name=document.createElement('span');name.textContent=node.name;const origin=document.createElement('span');const rate=node.rate===undefined?'标准倍率（未识别）':({low:'低倍率',standard:'标准倍率',high:'高倍率'}[node.rate_group]+' '+node.rate+'x');origin.textContent=node.type+' · '+rate+(node.rate_conflict?'（冲突）':'')+' · '+node.origins.map(value=>value.source_name).join('、');row.append(name,origin);byId('aggregateResults').append(row);});
-  } catch(error) {byId('aggregateSummary').textContent=error.message;}
-  finally {byId('previewAggregate').disabled=false;}
-});
-
+byId('previewURI').addEventListener('click',()=>{parsedURIText=null;syncDirectLinks().catch(()=>{});});
+byId('clearURI').addEventListener('click',()=>{byId('uriText').value='';byId('uriText').dispatchEvent(new Event('input',{bubbles:true}));});
+function scheduleAggregate(){
+ clearTimeout(aggregateTimer);aggregateRevision++;byId('aggregateResults').replaceChildren();byId('aggregateSummary').textContent='正在更新聚合预览…';aggregateTimer=setTimeout(()=>previewAggregation().catch(()=>{}),400);
+}
+async function previewAggregation(){
+ clearTimeout(aggregateTimer);await syncDirectLinks();clearTimeout(aggregateTimer);const revision=++aggregateRevision;
+ if(!selectedURLs().length&&!confirmedURIs.length){byId('aggregateResults').replaceChildren();byId('aggregateSummary').textContent='请添加订阅或直接节点链接。';return;}
+ if(sourceTimer||subscriptionAIStatus?.data.sources.some(source=>source.state==='refreshing')){byId('aggregateSummary').textContent='正在读取订阅，完成后自动聚合…';return;}
+ byId('previewAggregate').disabled=true;
+ try{const data=await api('/api/aggregate/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({urls:selectedURLs(),aggregate:byId('aggregate').checked,direct_links:confirmedURIs.join('\n'),policy:nodePolicy()})});if(revision!==aggregateRevision)return;
+  const cached=data.sources.filter(source=>source.using_cache).length;
+  byId('aggregateSummary').textContent='输入 '+data.input_count+' 个节点，去重后 '+data.node_count+' 个，合并重复 '+data.duplicate_count+' 个。自建 '+data.rate_counts.self+' / 低 '+data.rate_counts.low+' / 标准 '+data.rate_counts.standard+' / 高 '+data.rate_counts.high+'；未识别 '+data.rate_counts.unknown+'；倍率冲突 '+data.rate_counts.conflicts+'。'+(cached?cached+' 个来源使用最近成功缓存。':'');
+  byId('aggregateResults').replaceChildren();data.nodes.forEach(node=>{const row=document.createElement('div');row.className='node-row';const name=document.createElement('span');name.textContent=node.name;const origin=document.createElement('span');const rate=node.rate===undefined?'标准倍率（未识别）':({self:'自建',low:'低倍率',standard:'标准倍率',high:'高倍率'}[node.rate_group]+' '+node.rate+'x');origin.textContent=node.type+' · '+rate+(node.rate_conflict?'（冲突）':'')+' · '+node.origins.map(value=>value.source_name).join('、');row.append(name,origin);byId('aggregateResults').append(row);});
+ }catch(error){if(revision===aggregateRevision)byId('aggregateSummary').textContent=error.message;}finally{byId('previewAggregate').disabled=false;}
+}
+byId('previewAggregate').addEventListener('click',()=>previewAggregation().catch(error=>message(error.message,'error')));
 byId('previewRules').addEventListener('click',async()=>{
   byId('previewRules').disabled=true; byId('ruleResults').hidden=true; byId('ruleResults').value='';
   try {
@@ -269,28 +254,28 @@ function invalidateSubscription() {
   generatedPath='';byId('convertedUrl').value='';byId('generationDetails').hidden=true;
   ['copyUrl','downloadConfig','importClient','refreshDownload'].forEach(id=>byId(id).disabled=true);
 }
-document.querySelector('.converter').addEventListener('input',event=>{if(event.target.id!=='refreshDownload' && event.target.id!=='selfHostedSettings')invalidateSubscription();});
-document.querySelector('.converter').addEventListener('change',event=>{if(event.target.id!=='refreshDownload' && event.target.id!=='selfHostedSettings')invalidateSubscription();});
+document.querySelector('.converter').addEventListener('input',event=>{if(event.target.id!=='refreshDownload')invalidateSubscription();if(event.target.closest('#renameRules')||event.target.id==='ratePattern')scheduleAggregate();});
+document.querySelector('.converter').addEventListener('change',event=>{if(event.target.id!=='refreshDownload')invalidateSubscription();});
 function generationRequest() {
   const groups=JSON.parse(byId('groupSettings').value||'[]');if(!Array.isArray(groups))throw new Error('代理组需要 JSON 数组。');
   const policyMap=JSON.parse(byId('policyMap').value||'{}');if(!policyMap || Array.isArray(policyMap) || typeof policyMap!=='object' || Object.values(policyMap).some(value=>typeof value!=='string'))throw new Error('模板策略映射需要字符串值的 JSON 对象。');
-  return {urls:selectedURLs(),aggregate:byId('aggregate').checked,direct_links:confirmedURIs.join('\n'),policy:{rename_rules:renameRules,rate_pattern:byId('ratePattern').value.trim()},ai:{node_id:byId('aiNode').value,domains:byId('aiDomains').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean),chain:byId('aiChain').checked},groups_json:byId('groupSettings').value||'[]',rules:{preset:byId('rulePreset').value,custom_rules:byId('customRules').value.split(/\r?\n/),policy_map:policyMap,fallback:byId('ruleFallback').value.trim(),skip_unsupported:byId('skipUnsupportedRules').checked}};
+  return {urls:selectedURLs(),aggregate:byId('aggregate').checked,direct_links:confirmedURIs.join('\n'),policy:nodePolicy(),ai:{node_id:byId('aiNode').value,domains:byId('aiDomains').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean),chain:byId('aiChain').checked},groups_json:byId('groupSettings').value||'[]',rules:{preset:byId('rulePreset').value,custom_rules:byId('customRules').value.split(/\r?\n/),policy_map:policyMap,fallback:byId('ruleFallback').value.trim(),skip_unsupported:byId('skipUnsupportedRules').checked}};
 }
 function renderGenerationPreview(preview) {
-  const counts={low:0,standard:0,high:0};preview.nodes.forEach(node=>counts[node.rate_group]++);
-  byId('generationCounts').textContent=preview.nodes.length+' 个节点 · 低 '+counts.low+' / 标准 '+counts.standard+' / 高 '+counts.high+' · '+preview.groups.length+' 个代理组 · '+preview.rule_count+' 条规则 · 兼容跳过 '+preview.skipped_rules.length+' 条';
+  const counts={self:0,low:0,standard:0,high:0};preview.nodes.forEach(node=>counts[node.rate_group]++);
+  byId('generationCounts').textContent=preview.nodes.length+' 个节点 · 自建 '+counts.self+' / 低 '+counts.low+' / 标准 '+counts.standard+' / 高 '+counts.high+' · '+preview.groups.length+' 个代理组 · '+preview.rule_count+' 条规则 · 兼容跳过 '+preview.skipped_rules.length+' 条';
   byId('generatedGroups').replaceChildren();preview.groups.forEach(group=>{const row=document.createElement('div');row.className='node-row';const name=document.createElement('span');name.textContent=group.name+' · '+group.type;const members=document.createElement('span');members.textContent=group.proxies.join('、');row.append(name,members);byId('generatedGroups').append(row);});byId('generationDetails').hidden=false;
 }
 function updateDownloadAddress() { if(generatedPath)byId('convertedUrl').value=new URL(generatedPath+(byId('refreshDownload').checked?'&refresh=true':''),location.href).href; }
 byId('refreshDownload').addEventListener('change',updateDownloadAddress);
 byId('previewGeneration').addEventListener('click',async()=>{
   byId('previewGeneration').disabled=true;const revision=generationRevision;
-  try{const preview=await api('/api/generate/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(generationRequest())});if(revision!==generationRevision)return;renderGenerationPreview(preview);byId('generationSummary').textContent='分组与规则预览成功。点击生成订阅以保存下载快照。';}
+  try{await syncDirectLinks();if(revision!==generationRevision)return;const preview=await api('/api/generate/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(generationRequest())});if(revision!==generationRevision)return;renderGenerationPreview(preview);byId('generationSummary').textContent='分组与规则预览成功。点击生成订阅以保存下载快照。';}
   catch(error){byId('generationSummary').textContent=error.message;}finally{byId('previewGeneration').disabled=false;}
 });
 byId('generate').addEventListener('click',async()=>{
   byId('generate').disabled=true;byId('generate').textContent='正在生成…';invalidateSubscription();const revision=generationRevision;
-  try{const data=await api('/api/generate'+(byId('refreshGeneration').checked?'?refresh=true':''),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(generationRequest())});if(revision!==generationRevision){message('输入已修改，请按当前设置重新生成。');return;}generatedPath=data.download_path;updateDownloadAddress();renderGenerationPreview(data.preview);['copyUrl','downloadConfig','importClient','refreshDownload'].forEach(id=>byId(id).disabled=false);byId('generationSummary').textContent='订阅已生成 · '+new Date(data.generated_at).toLocaleString()+(data.using_cache?' · 部分来源读取失败，使用最近成功缓存。':'');message('完整 Mihomo 订阅已生成。','success');}
+  try{await syncDirectLinks();if(revision!==generationRevision){message('输入已修改，请按当前设置重新生成。');return;}const data=await api('/api/generate'+(byId('refreshGeneration').checked?'?refresh=true':''),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(generationRequest())});if(revision!==generationRevision){message('输入已修改，请按当前设置重新生成。');return;}generatedPath=data.download_path;updateDownloadAddress();renderGenerationPreview(data.preview);['copyUrl','downloadConfig','importClient','refreshDownload'].forEach(id=>byId(id).disabled=false);byId('generationSummary').textContent='订阅已生成 · '+new Date(data.generated_at).toLocaleString()+(data.using_cache?' · 部分来源读取失败，使用最近成功缓存。':'');message('完整 Mihomo 订阅已生成。','success');}
   catch(error){byId('generationSummary').textContent=error.message;message(error.message,'error');}finally{byId('generate').disabled=false;byId('generate').textContent='生成订阅';}
 });
 byId('copyUrl').addEventListener('click',async()=>{

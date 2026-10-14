@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -17,6 +18,8 @@ const (
 	highGroup     = "💎 高倍率"
 	aiGroup       = "🤖 AI 固定出口"
 	aiChainGroup  = "🔗 AI 前置选择"
+	selfGroup     = "🏠 自建"
+	telegramGroup = "📲 电报消息"
 )
 
 func templateGroups(preset string, nodes []AggregatedNode, libraries ...fs.FS) ([]map[string]any, error) {
@@ -133,8 +136,15 @@ func stringList(value any) ([]string, error) {
 
 func userGroups(input []map[string]any, nodes []AggregatedNode) ([]map[string]any, error) {
 	byID := map[string]string{}
+	byName := map[string]string{}
 	for _, node := range nodes {
 		byID[node.ID] = node.Name
+		name := strings.TrimLeftFunc(node.Name, func(char rune) bool { return unicode.IsSpace(char) || (char >= 0x1f1e6 && char <= 0x1f1ff) })
+		if _, exists := byName[name]; exists {
+			byName[name] = ""
+		} else {
+			byName[name] = node.Name
+		}
 	}
 	groups := []map[string]any{}
 	seen := map[string]bool{}
@@ -144,7 +154,7 @@ func userGroups(input []map[string]any, nodes []AggregatedNode) ([]map[string]an
 			group[key] = value
 		}
 		name, _ := group["name"].(string)
-		if !validPolicyName(name) || seen[name] || name == lowGroup || name == standardGroup || name == highGroup || name == aiGroup || name == aiChainGroup {
+		if !validPolicyName(name) || seen[name] || name == selfGroup || name == lowGroup || name == standardGroup || name == highGroup || name == aiGroup || name == aiChainGroup {
 			return nil, errors.New("custom group names must be unique and cannot override rate or AI groups")
 		}
 		seen[name] = true
@@ -160,6 +170,8 @@ func userGroups(input []map[string]any, nodes []AggregatedNode) ([]map[string]an
 		members = append([]string(nil), members...)
 		for index, member := range members {
 			if resolved, exists := byID[member]; exists {
+				members[index] = resolved
+			} else if resolved := byName[member]; resolved != "" {
 				members[index] = resolved
 			} else if strings.HasPrefix(member, "node-") {
 				return nil, errors.New("custom group references an unknown node ID")
@@ -181,8 +193,8 @@ func userGroups(input []map[string]any, nodes []AggregatedNode) ([]map[string]an
 			return nil, err
 		}
 		for _, rate := range rates {
-			if rate != "low" && rate != "standard" && rate != "high" {
-				return nil, errors.New("rate_groups must use low, standard or high")
+			if rate != "self" && rate != "low" && rate != "standard" && rate != "high" {
+				return nil, errors.New("rate_groups must use self, low, standard or high")
 			}
 		}
 		sources, err := stringList(group["source_ids"])
@@ -235,18 +247,18 @@ func validPolicyName(name string) bool {
 
 func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode, aiNode string, chain bool, libraries ...fs.FS) ([]map[string]any, error) {
 	groups := []map[string]any{}
-	rateMembers := map[string][]string{"low": {}, "standard": {}, "high": {}}
+	rateMembers := map[string][]string{"self": {}, "low": {}, "standard": {}, "high": {}}
 	for _, node := range nodes {
 		rateMembers[node.RateGroup] = append(rateMembers[node.RateGroup], node.Name)
 	}
 	mainMembers := []string{}
-	for _, entry := range []struct{ rate, name string }{{"low", lowGroup}, {"standard", standardGroup}, {"high", highGroup}} {
+	for _, entry := range []struct{ rate, name string }{{"low", lowGroup}, {"standard", standardGroup}, {"high", highGroup}, {"self", selfGroup}} {
 		members := rateMembers[entry.rate]
 		if len(members) == 0 {
 			continue
 		}
 		group := map[string]any{"name": entry.name, "type": "select", "proxies": members}
-		if entry.rate != "high" && !strings.Contains(preset, "noauto") {
+		if entry.rate != "high" && entry.rate != "self" && !strings.Contains(preset, "noauto") {
 			group["type"], group["url"], group["interval"], group["tolerance"] = "url-test", "https://www.gstatic.com/generate_204", 300, 50
 		}
 		groups = append(groups, group)
@@ -256,7 +268,7 @@ func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode,
 	if aiNode != "" {
 		if chain {
 			members := []string{}
-			for _, rate := range []string{"low", "standard", "high"} {
+			for _, rate := range []string{"low", "standard", "high", "self"} {
 				for _, node := range nodes {
 					if node.Name != aiNode && node.RateGroup == rate && !containsString([]string{"direct", "reject", "dns", "compatible"}, strings.ToLower(node.Type)) {
 						members = append(members, node.Name)
@@ -335,6 +347,20 @@ func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode,
 	for _, group := range groups {
 		if !removed[group["name"].(string)] {
 			kept = append(kept, group)
+		}
+	}
+	if len(rateMembers["self"]) > 0 {
+		found := false
+		for _, group := range kept {
+			name := group["name"].(string)
+			if name == telegramGroup || name == "📲 电报信息" {
+				members, _ := stringList(group["proxies"])
+				group["proxies"] = appendUnique(members, selfGroup)
+				found = true
+			}
+		}
+		if !found {
+			kept = append(kept, map[string]any{"name": telegramGroup, "type": "select", "proxies": []string{mainGroup, selfGroup}})
 		}
 	}
 	if err := validateGroups(kept, nodes); err != nil {

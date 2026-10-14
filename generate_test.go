@@ -49,7 +49,7 @@ func TestGenerateAllPresetsWithResolvedGroups(t *testing.T) {
 				if group["name"] == mainGroup && members[0] != lowGroup {
 					t.Fatal("ordinary default does not prefer low rates")
 				}
-				if group["type"] != "select" && containsString(members, "日本 2x") {
+				if group["type"] != "select" && containsString(members, "🇯🇵 日本 2x") {
 					t.Fatal("high-rate node included in automatic backup")
 				}
 				if strings.Contains(preset.ID, "noauto") && group["type"] != "select" {
@@ -77,7 +77,7 @@ func TestAIFixedExitAndRulesPrecedeGenericPolicies(t *testing.T) {
 	}
 	for _, group := range preview.Groups {
 		members, _ := stringList(group["proxies"])
-		if group["name"] == aiGroup && !reflect.DeepEqual(members, []string{"美国"}) {
+		if group["name"] == aiGroup && !reflect.DeepEqual(members, []string{"🇺🇸 美国"}) {
 			t.Fatal("AI group contains another exit")
 		}
 		if group["name"] == "💬 Ai平台" && !reflect.DeepEqual(members, []string{aiGroup}) {
@@ -122,10 +122,10 @@ func TestCustomGroupsIDsSelectorsConflictsAndCycles(t *testing.T) {
 	}
 	for _, group := range preview.Groups {
 		members, _ := stringList(group["proxies"])
-		if group["name"] == "ByID" && !reflect.DeepEqual(members, []string{"Renamed 0.5x"}) {
+		if group["name"] == "ByID" && !reflect.DeepEqual(members, []string{"🇭🇰 Renamed 0.5x"}) {
 			t.Fatal("stable ID failed after rename")
 		}
-		if group["name"] == "BySource" && !reflect.DeepEqual(members, []string{"美国"}) {
+		if group["name"] == "BySource" && !reflect.DeepEqual(members, []string{"🇺🇸 美国"}) {
 			t.Fatal("source or rate selector failed")
 		}
 		if group["name"] == "Ⓜ️ 微软服务" && !reflect.DeepEqual(members, []string{"REJECT"}) {
@@ -193,12 +193,14 @@ func TestGeneratedConfigurationsWithMihomo(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := os.Getenv("CLASH_ACL_TEST_MIHOMO_DATA")
 	if dataDir != "" {
-		data, err := os.ReadFile(filepath.Join(dataDir, "Country.mmdb"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, "Country.mmdb"), data, 0600); err != nil {
-			t.Fatal(err)
+		for _, name := range []string{"Country.mmdb", "ASN.mmdb"} {
+			data, err := os.ReadFile(filepath.Join(dataDir, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, name), data, 0600); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	for _, preset := range rulePresets {

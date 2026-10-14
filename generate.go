@@ -162,6 +162,9 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 }
 
 func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNode, preview GenerationPreview, libraries ...fs.FS) ([]byte, GenerationPreview, error) {
+	for index := range nodes {
+		nodes[index].Name = flagNodeName(nodes[index].Name, nodes[index].Origins)
+	}
 	customGroups := config.Groups
 	if request.Groups != nil {
 		customGroups = *request.Groups
@@ -177,7 +180,7 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 	if err != nil {
 		return nil, preview, err
 	}
-	names := append([]string{mainGroup, lowGroup, standardGroup, highGroup, aiGroup, aiChainGroup}, templateNames...)
+	names := append([]string{mainGroup, lowGroup, standardGroup, highGroup, aiGroup, aiChainGroup, selfGroup, telegramGroup}, templateNames...)
 	for _, group := range customGroups {
 		name, _ := group["name"].(string)
 		names = append(names, name)
@@ -246,6 +249,43 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 	}
 	custom := append([]string(nil), ruleRequest.CustomRules...)
 	custom = append(custom, config.Rules...)
+	if actualTargets[selfGroup] {
+		target := telegramGroup
+		if actualTargets["📲 电报信息"] {
+			target = "📲 电报信息"
+		}
+		data, err := fs.ReadFile(ruleLibrary(libraries), "rules/ACL4SSR/Clash/Telegram.list")
+		if err != nil {
+			return nil, preview, err
+		}
+		values, err := parseRulePayload(data, "classical", target)
+		if err != nil {
+			return nil, preview, err
+		}
+		custom = append(custom, values...)
+	}
+	if aiNode != "" || ruleRequest.Preset != "none" {
+		target := mainGroup
+		if actualTargets["💬 Ai平台"] {
+			target = "💬 Ai平台"
+		}
+		if aiNode != "" {
+			target = aiGroup
+		}
+		data, err := bundledRules.ReadFile("rules/AI/NetCoffee.list")
+		if err != nil {
+			return nil, preview, err
+		}
+		values, err := parseRulePayload(data, "classical", target)
+		if err != nil {
+			return nil, preview, err
+		}
+		if aiNode != "" {
+			custom = append(values, custom...)
+		} else {
+			custom = append(custom, values...)
+		}
+	}
 	if aiNode != "" {
 		if target, exists := ruleRequest.PolicyMap["💬 Ai平台"]; exists && target != "💬 Ai平台" && target != aiGroup {
 			return nil, preview, errors.New("bound AI template policy cannot be mapped to another exit")

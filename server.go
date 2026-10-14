@@ -352,7 +352,7 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
-		counts := map[string]int{"low": 0, "standard": 0, "high": 0, "unknown": 0, "conflicts": 0}
+		counts := map[string]int{"self": 0, "low": 0, "standard": 0, "high": 0, "unknown": 0, "conflicts": 0}
 		for _, node := range nodes {
 			counts[node.RateGroup]++
 			if node.Rate == nil {
@@ -395,7 +395,7 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 			return
 		}
-		preview.RulesVersion = version
+		preview.RulesVersion = version + "/ai-self-v1"
 		writeJSON(w, http.StatusOK, preview)
 	})
 	mux.HandleFunc("POST /api/rules/preview", func(w http.ResponseWriter, r *http.Request) {

@@ -15,6 +15,7 @@ type SourceRate struct {
 }
 
 type NodePolicyOptions struct {
+	SelfHostedIDs []string              `json:"self_hosted_ids,omitempty"`
 	RenameRules   []RenameRule          `json:"rename_rules"`
 	RatePattern   string                `json:"rate_pattern"`
 	SourceRates   map[string]SourceRate `json:"source_rates"`
@@ -96,6 +97,25 @@ func applyNodePolicy(input []AggregatedNode, options NodePolicyOptions) ([]Aggre
 			return nil, errors.New("rate override requires an existing node ID and a finite non-negative rate")
 		}
 	}
+	selfHosted := map[string]bool{}
+	for _, id := range options.SelfHostedIDs {
+		if !ids[id] {
+			return nil, errors.New("self-hosted marking requires an existing imported node ID")
+		}
+		for _, node := range input {
+			if node.ID != id {
+				continue
+			}
+			imported := false
+			for _, origin := range node.Origins {
+				imported = imported || origin.SourceID == "direct-links"
+			}
+			if !imported {
+				return nil, errors.New("self-hosted marking requires a directly imported link")
+			}
+		}
+		selfHosted[id] = true
+	}
 	nodes := append([]AggregatedNode(nil), input...)
 	for index := range nodes {
 		node := &nodes[index]
@@ -109,7 +129,10 @@ func applyNodePolicy(input []AggregatedNode, options NodePolicyOptions) ([]Aggre
 		node.RateValues = nil
 		node.RateSource = "unknown"
 		node.RateGroup = "standard"
-		if value, exists := options.RateOverrides[node.ID]; exists {
+		if selfHosted[node.ID] {
+			value := float64(0)
+			node.Rate, node.RateSource = &value, "self_hosted"
+		} else if value, exists := options.RateOverrides[node.ID]; exists {
 			node.Rate = &value
 			node.RateSource = "override"
 		} else {
@@ -157,6 +180,9 @@ func applyNodePolicy(input []AggregatedNode, options NodePolicyOptions) ([]Aggre
 				node.RateGroup = "high"
 			}
 		}
+		if selfHosted[node.ID] {
+			node.RateGroup = "self"
+		}
 		for ruleIndex, rule := range options.RenameRules {
 			if rule.SourceID != "" {
 				matches := false
@@ -179,6 +205,7 @@ func applyNodePolicy(input []AggregatedNode, options NodePolicyOptions) ([]Aggre
 		if strings.TrimSpace(node.Name) == "" {
 			return nil, errors.New("renaming produced an empty node name")
 		}
+		node.Name = flagNodeName(node.Name, node.Origins)
 		node.Proxy["name"] = node.Name
 	}
 	resolveNodeNames(nodes)

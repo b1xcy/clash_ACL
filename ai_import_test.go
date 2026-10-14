@@ -150,6 +150,17 @@ func validateImportedAIWithMihomo(t *testing.T, output []byte) {
 	}
 	dir := t.TempDir()
 	file := filepath.Join(dir, "imported-ai.yaml")
+	if dataDir := os.Getenv("CLASH_ACL_TEST_MIHOMO_DATA"); dataDir != "" {
+		for _, name := range []string{"Country.mmdb", "ASN.mmdb"} {
+			data, err := os.ReadFile(filepath.Join(dataDir, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, name), data, 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 	if err := os.WriteFile(file, output, 0600); err != nil {
 		t.Fatal(err)
 	}

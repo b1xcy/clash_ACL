@@ -152,6 +152,7 @@ func (store *SnapshotStore) get(ctx context.Context, id string, plan GenerationP
 	if store.rules != nil {
 		library, version = store.rules.current()
 	}
+	version += "/ai-self-v1"
 	var previous *ConfigSnapshot
 	if !refresh {
 		if snapshot, err := store.read(id); err == nil {
