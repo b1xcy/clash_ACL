@@ -20,6 +20,20 @@ var rulePresets = []RulePreset{
 	{ID: "acl4ssr-online", Name: "ACL4SSR 默认版", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online.ini"},
 	{ID: "acl4ssr-mini", Name: "ACL4SSR 精简版", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Mini.ini"},
 	{ID: "acl4ssr-full-noauto", Name: "ACL4SSR 完整版（无自动测速）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Full_NoAuto.ini"},
+	{ID: "acl4ssr-adblock-plus", Name: "ACL4SSR 默认版（更多去广告）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_AdblockPlus.ini"},
+	{ID: "acl4ssr-multicountry", Name: "ACL4SSR 默认版（多国分组）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_MultiCountry.ini"},
+	{ID: "acl4ssr-noauto", Name: "ACL4SSR 默认版（无自动测速）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_NoAuto.ini"},
+	{ID: "acl4ssr-noreject", Name: "ACL4SSR 默认版（无广告拦截）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_NoReject.ini"},
+	{ID: "acl4ssr-mini-adblock-plus", Name: "ACL4SSR 精简版（更多去广告）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Mini_AdblockPlus.ini"},
+	{ID: "acl4ssr-mini-noauto", Name: "ACL4SSR 精简版（无自动测速）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Mini_NoAuto.ini"},
+	{ID: "acl4ssr-mini-fallback", Name: "ACL4SSR 精简版（故障转移）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Mini_Fallback.ini"},
+	{ID: "acl4ssr-mini-multimode", Name: "ACL4SSR 精简版（多模式）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Mini_MultiMode.ini"},
+	{ID: "acl4ssr-mini-multicountry", Name: "ACL4SSR 精简版（多国分组）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Mini_MultiCountry.ini"},
+	{ID: "acl4ssr-full", Name: "ACL4SSR 完整版", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Full.ini"},
+	{ID: "acl4ssr-full-multimode", Name: "ACL4SSR 完整版（多模式）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Full_MultiMode.ini"},
+	{ID: "acl4ssr-full-adblock-plus", Name: "ACL4SSR 完整版（更多去广告）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Full_AdblockPlus.ini"},
+	{ID: "acl4ssr-full-netflix", Name: "ACL4SSR 完整版（奈飞全量）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Full_Netflix.ini"},
+	{ID: "acl4ssr-full-google", Name: "ACL4SSR 完整版（谷歌细分）", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Full_Google.ini"},
 }
 
 func loadRulePreset(id string) ([]externalRuleSet, []string, string, error) {
