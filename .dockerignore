@@ -2,8 +2,11 @@
 !Dockerfile
 !go.mod
 !go.sum
-!*.go
-!web/
-!web/index.html
-!rules/
-!rules/**
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!frontend/
+!frontend/**
+frontend/node_modules/
+internal/assets/dist/

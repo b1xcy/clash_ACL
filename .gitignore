@@ -1,5 +1,9 @@
 /data/
 /clash_ACL
 /clash_ACL.exe
+/clash-acl
+/clash-acl.exe
 /.env
 /.env.*
+/frontend/node_modules/
+/internal/assets/dist/

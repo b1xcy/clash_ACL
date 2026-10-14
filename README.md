@@ -1,16 +1,21 @@
 # clash_ACL
 
-面向 Mihomo 的自建订阅聚合与策略生成器，使用 Go 实现，适合部署在低性能 VPS。
+自建的 Mihomo / Clash.Meta 订阅转换工具。合并 YAML 订阅与协议链接，统一整理节点、倍率、代理组和分流规则，生成可持续更新的订阅地址。
 
-**当前状态：已实现 YAML/协议链接导入、聚合去重、倍率/重命名、17 个本地 ACL4SSR 方案、实际代理组、AI 固定出口、完整 Mihomo YAML 生成与持久化快照下载。** 页面可选择方案、勾选来源、通过链接导入并标记自建节点、预览分组、生成订阅、复制、下载及导入客户端。
+## 功能
 
-打开服务根地址（本地为 `http://127.0.0.1:8080/`），使用类似 ACL4SSR 的订阅转换表单：输入多行订阅、选择 Mihomo 客户端、设置聚合，并在进阶模式编辑重命名、AI 自建出口和代理组配置。页面不展示开发进度。静态 HTML 内嵌在 Go 程序中，随 Docker 镜像交付，不依赖 CDN 或单独前端服务。打开即可使用，不需要登录或输入访问令牌。
+- **粘贴即导入**：订阅自动读取，直接链接自动解析、逐行提示错误，混合来源自动聚合去重。
+- **节点整理**：可搜索节点表、倍率分布、重命名；支持 249 个国家／地区的国旗前缀，识别 SG/CN/HK/TW/JP 等缩写。
+- **自建零倍率**：通过链接导入，逐节点勾选自建（0 倍率），独立 `🏠 自建` 选择组；电报组提供该选项。
+- **AI 固定出口**：选择支持协议的导入／订阅节点，内置 ChatGPT/Codex、Claude、Gemini、Copilot 等规则，无需在额外域名框重复填写。
+- **链式代理**：为 AI 出口生成前置选择组，在 Clash Verge 中切换入口；AI 最终出口保持固定。
+- **规则更新**：17 个 ACL4SSR 官网命名方案，默认每 24 小时检查上游，也可手动更新；失败保留有效库。
+- **配置导出**：预览实际组，持久化快照、复制地址、下载 YAML、导入客户端；刷新来源与更新规则分别处理。
+- **进阶配置**：倍率正则、重命名、代理组、额外域名、自定义规则与策略映射，保留协议字段和数值精度。
 
-输入订阅并勾选来源，或粘贴直接节点链接自动导入；基础模式可选完整官网命名的规则方案，进阶模式可编辑重命名、AI 绑定和自定义组/规则。点击「预览分组与规则」检查实际组，点击「生成订阅」保存可下载配置。输入变化后需重新生成。可选择生成前刷新来源，或让客户端更新订阅时刷新来源。
+Vue 3 + Vite 前端提供配置分区、倍率分布与 AI 链路可视化。布局参考 [SubBoost](https://github.com/SubBoost/subboost) 的配置／预览组织方式，页面源码独立实现。生产资源内嵌在 Go 二进制中，无 CDN、登录或前端运行服务。
 
-## 启动基础服务
-
-从项目根目录构建并启动，无需配置令牌：
+## Docker 部署
 
 ```bash
 docker build -t clash-acl:local .
@@ -18,290 +23,67 @@ docker run -d --name clash-acl --restart unless-stopped \
   -p 127.0.0.1:8080:8080 \
   -v clash-acl-data:/data \
   clash-acl:local
-curl http://127.0.0.1:8080/healthz
-docker logs clash-acl
 ```
 
-Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/config.json`；数据卷保存转换设置、来源缓存、生成快照和已验证的上游规则。服务不生成、读取或打印访问令牌。
+打开 `http://127.0.0.1:8080/`。Docker 自动构建前端和 Go，最终镜像只运行 Go 程序，以 `10001:10001` 用户运行。数据卷保留设置、来源缓存、快照及上游规则。
 
-本地开发需要 Go 1.25.5 或更新版本，执行 `go run .` 即可；默认监听 `127.0.0.1:8080`，配置保存于 `data/config.json`。
-
-| 环境变量 | 用途 | 默认值 |
+| 环境变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| `CLASH_ACL_LISTEN_ADDR` | HTTP 监听地址 | 本地 `127.0.0.1:8080`；镜像内 `0.0.0.0:8080` |
-| `CLASH_ACL_DATA_DIR` | 配置与缓存目录 | 本地 `data`；镜像内 `/data` |
-| `CLASH_ACL_RULE_AUTO_UPDATE` | 是否每 24 小时检查 ACL4SSR 上游规则；false 仍允许手动检查 | `true` |
+| `CLASH_ACL_LISTEN_ADDR` | 本地 `127.0.0.1:8080`；镜像 `0.0.0.0:8080` | HTTP 地址 |
+| `CLASH_ACL_DATA_DIR` | 本地 `data`；镜像 `/data` | 配置与持久数据 |
+| `CLASH_ACL_RULE_AUTO_UPDATE` | `true` | 24 小时检查 ACL；false 关闭定时，仍可手动更新 |
 
-## 已实现 API
+GitHub Actions 在推送 main、v* 标签或手动触发时构建发布到 `ghcr.io/b1xcy/clash_acl`，main 对应 latest。本地开发不会自动推送或发布。
 
-| 方法与路径 | 行为 |
-| --- | --- |
-| `GET /healthz` | 返回 `ok`，检查服务存活 |
-| `GET /` | 返回内嵌订阅转换表单 HTML |
-| `GET /api/subscriptions?url=...` | 按请求地址读取缓存状态与节点预览；refresh=true 启动后台刷新 |
-| `GET /api/status` | 返回接口能力、配置数量及不含 URL 的来源摘要 |
-| `GET /api/config` | 返回当前完整配置 |
-| `PUT /api/config` | 用 JSON 请求体整体替换并保存配置 |
-| `GET /api/sources` | 返回可编辑的来源设置，包含订阅 URL |
-| `PUT /api/sources` | 用 JSON 来源数组替换来源列表，保留其他配置 |
-| `GET /api/options` | 返回重命名、AI、代理组设置及自建节点名称 |
-| `PUT /api/options` | 保存转换设置，保留来源、自建节点和基础配置 |
-| `GET /api/self-hosted` | 返回用于编辑的节点 JSON 文本，保留数值精度 |
-| `PUT /api/self-hosted` | 替换自建节点数组，保留其他设置，拒绝删除已绑定 AI 的节点 |
-| `POST /api/sources/refresh` | 启动启用来源的后台刷新，返回 HTTP 202 |
-| `GET /api/sources/{id}/preview` | 从最近成功缓存返回节点名称与协议类型 |
-| `POST /api/yaml/preview` | 解析请求体中的 YAML，仅预览，不保存 |
-| `POST /api/uri/preview` | 解析多行协议链接，返回原行号、名称、协议、ID 与脱敏错误，不保存 |
-| `POST /api/aggregate/preview` | 合并请求中的 YAML 缓存与有效直接链接，按连接参数去重并预览 |
-| `GET /api/rules/presets` | 返回内置规则方案名称与 ID |
-| `GET /api/rules/status` | 返回规则版本、来源、更新状态、上次检查及下次检查时间 |
-| `POST /api/rules/update` | 立即后台检查/校验上游规则，返回 HTTP 202，同步任务自动合并 |
-| `POST /api/rules/preview` | 读取本地 INI/规则文件，输出自定义优先的完整规则顺序 |
-| `POST /api/generate/preview` | 生成实际组与完整配置，返回脱敏节点、代理组、规则数及来源状态；不返回节点凭据 |
-| `POST /api/generate` | 接收转换参数并保存完整快照，返回固定下载地址和脱敏预览 |
-| `GET /download?id=...` | 返回已保存 YAML；refresh=true 等待刷新和重新生成 |
-| `GET /download?url=...` | 使用保存的默认设置与可选 preset 生成/读取快照 |
+## 使用
 
-所有接口均无需认证。订阅地址通过重复的 url 查询参数传入，地址中的 &、? 等字符由调用端 URL 编码；aggregate=false 只读取第一条，默认启用全部。读取不会修改服务器上保存的来源列表，缓存仍保留在数据目录。
+1. 粘贴订阅地址或直接节点，等待自动解析与聚合。来源可逐个停用，关闭聚合时只使用第一条订阅。
+2. 在直接节点列表勾选自建（0 倍率）。支持 SS、TUIC、VLESS、VMess、Trojan、Hysteria2/hy2、AnyTLS 混合输入。
+3. 选择 AI 固定出口，需要时启用链式代理。内置规则在 placeholder 和完整清单中显示；额外域名框留空即可，只补中转站等其他服务。
+4. 选择 ACL4SSR 方案，必要时进入进阶配置。预览实际组后生成，再复制、下载或导入客户端。
+
+生成地址固定当次设置，修改后需要重新生成。客户端更新可选择刷新来源。普通下载读取快照，规则版本改变则使用保存节点重建。上游失败但有缓存时明确标记使用旧缓存。
+
+AI 链路为前置节点 → 所选出口 → AI，前置组排除出口自身和 DIRECT；缺少出口／入口或存在循环时拒绝生成。TUIC/Hysteria2 需要支持 UDP 转发的前置节点，Claude IP-ASN 依赖客户端 ASN 数据库。服务器不做节点连通性、测速或出口 IP 检测。
+
+AI 补充参考 [Net.Coffee GPT](https://ip.net.coffee/gpt/site.html) 与 [Claude](https://ip.net.coffee/claude/site.html)，补域名、CDN、认证、语音、遥测及 Claude IP/ASN，随镜像发布；ACL 上游更新不会覆盖。可选 geosite/NTP 未默认启用。none 方案保留已启用的 AI／电报服务分流。
+
+## 项目结构
+
+```text
+cmd/clash-acl/          Go 入口
+internal/app/          HTTP、导入、聚合、策略、快照、更新及相邻测试
+internal/assets/       Go embed 资源入口
+  rules/               ACL4SSR 与 AI 补充
+  dist/                Vite 生成资源（不入库）
+frontend/              Vue 3 + Vite 与 npm 依赖锁
+  src/App.vue          页面区域
+  src/useConverter.js  状态、异步导入与 API
+  src/components/      节点表、倍率分布、AI 链路
+docs/                  API、当前交接与历史
+.github/workflows/     Docker 发布
+```
+
+## 本地开发
+
+需要 Go 1.25.5+ 与 Node 22.18+／24+。先构建前端再运行 Go；dist 自动生成，洁净 checkout 不包含它。
 
 ```bash
-curl --get http://127.0.0.1:8080/api/subscriptions \
-  --data-urlencode 'url=https://example.com/sub?token=example&format=clash' \
-  --data-urlencode 'url=https://example.net/clash.yaml' \
-  --data-urlencode 'aggregate=true' \
-  --data-urlencode 'refresh=true'
+npm --prefix frontend ci
+npm --prefix frontend run build
+go run ./cmd/clash-acl
 ```
 
-接口先返回来源状态，使用相同 url 参数且省略 refresh 轮询，读取成功后响应的 previews 提供节点名称与类型。参数错误返回 400。/download 沿用同一组地址参数，也可使用生成接口返回的快照 ID。
-配置读写接口保留，用于可选的服务器默认设置；前端读取订阅不依赖先保存配置。JSON 响应不缓存，日志和校验错误不打印完整来源地址或节点秘密。
+热更新：保持 Go 服务运行，另一个终端运行 `npm --prefix frontend run dev`。Vite 将 API/下载转发到本地 Go。
 
-配置结构包含 `fetch_concurrency`（默认 2）、`sources`、`self_hosted_nodes`、`rename_rules`、`groups`、`rules`、`ai` 与 `base`。自建节点使用 `{ "id": "fixed", "proxy": { ... } }`，`proxy` 保存完整 Mihomo 节点字段；`ai.node_id` 可引用保存的自建 ID，或 URI/订阅预览返回的稳定 node-... ID。生成器执行这些策略，base 中的客户端设置保留，mode 固定为 rule，proxies/proxy-groups/rules 由生成器统一输出。
-
-## 生成与快照下载
-
-POST /api/generate 接收 urls、aggregate、direct_links、policy、ai、groups（或 groups_json 文本）与 rules。省略 policy/ai/groups 使用保存的默认设置；rules 包含 preset、custom_rules、policy_map、fallback、skip_unsupported。默认方案为 acl4ssr-online；设置 preset=none 可只使用自定义规则。POST /api/generate?refresh=true 强制刷新来源。
-
-成功返回 download_path（/download?id=...）、generated_at、using_cache、refresh_succeeded 和脱敏 preview，不返回节点认证参数。完整 YAML 通过下载地址获取。直接节点、自建节点及转换参数保存于私有数据目录的 snapshots/ 文件，重启后地址仍有效；快照地址固定当时的设置，修改默认设置后须重新生成新地址。
-
-普通下载与 refresh=false 返回已有快照；规则版本变化时使用快照内保存的完整节点参数重建分组/规则，不额外刷新机场来源，不重复执行重命名。首次没有快照时拉取缺少的来源缓存并生成。refresh=true 等待启用来源刷新与生成，沿用默认并发 2 和同来源请求合并；同一快照的并发生成也合并。失败来源有成功缓存时可继续生成，响应头 X-Clash-ACL-Using-Cache 为 true，X-Clash-ACL-Refresh-Succeeded 为 false。缺少可用来源、AI/分组/规则错误或保存失败会返回错误，保留已有完整快照。
-
-PUT 是整体替换操作，更新前应先读取完整配置。非法 JSON、重复来源 ID、无效来源 URL 和不存在的 AI 节点引用会返回 HTTP 400，并保留原文件。成功写入使用同目录临时文件与重命名；节点扩展字段和 JSON 数字精度在读写中保留。
-
-## 来源读取与缓存
-
-在「订阅链接」中每行输入一个地址，点击「读取订阅」。聚合关闭时只读取第一行；展开本次来源后可查看节点和缓存。刷新任务在后台执行，页面自动更新来源状态；停用来源不会发起请求。`/api/subscriptions` 返回本次来源的节点数、上次刷新时间、错误、缓存状态与节点预览。
-
-支持含 `proxies` 的 Clash/Mihomo 配置及 proxy-provider YAML。只提取节点，保留嵌套协议参数与扩展字段；来源自带分组和规则不合并。输入缺少节点、节点缺少名称或类型、多文档 YAML 等情况会明确报错。
-
-- 来源缓存位于数据目录的 `cache/`，使用来源 ID 与 URL 的摘要作为文件名。修改 URL 后不会复用旧 URL 的缓存。
-- 参数读取接口的并发上限为 2；已保存来源的刷新可通过 `fetch_concurrency` 调整。同一来源的重叠刷新共用一个任务。
-- HTTP 请求超时为 20 秒，单个订阅上限为 8 MiB。
-- 刷新失败时保留最近成功节点，显示 `using_cache: true` 和错误。没有成功缓存时明确显示失败。
-- 页面与预览 API 只显示节点名称和协议，不公开服务器、密码或认证参数。完整节点参数保存在私有缓存中，供后续生成器使用。
-- 「YAML 预览」支持粘贴本地配置，解析结果不会自动保存或导入。多行协议 URI 通过独立入口解析，见下文。
-
-订阅来源可手动刷新，也可通过生成/下载请求的 refresh=true 刷新。来源订阅不进行定时后台拉取。
-
-## 聚合与去重预览
-
-粘贴订阅地址后自动读取缺少缓存的来源；粘贴直接节点后自动解析有效行并逐行显示失败原因，随后自动更新聚合预览，无需点击「使用有效节点」。可点击读取/重新解析/更新聚合进行手动重试。支持仅订阅、仅直接链接或混合输入；关闭聚合时只选第一条订阅，已解析直接节点仍参与聚合。
-
-节点 ID 基于名称以外的完整连接参数计算；JSON 键顺序不影响 ID，数字和数字字符串形式的端口统一比较。协议、密码、UUID、TLS、传输层及扩展字段不同的节点分别保留，不根据同名或相同服务器地址删除。未显式提供的协议默认值不做推测合并。
-
-同一节点出现于多个来源时，保留全部来源和原始名称，使用首次出现的名称。同名且不同连接参数的节点添加 ID 后缀；与内置策略名冲突时也改名。输入节点及完整参数保留，修改只发生在聚合输出副本中。
-
-API 请求为 JSON：urls 数组、aggregate 布尔值和 direct_links 多行文本。启用来源尚无成功缓存或正在读取时返回 409，请先完成「读取订阅」。上游失败但有成功缓存时允许预览并明确提示缓存；直接链接含失败行则返回 400，不静默丢弃。响应仅包含 ID、名称、协议、来源及数量，不返回连接凭据，也不修改服务器来源配置。
-
-聚合预览应用倍率分类和重命名；完整生成额外加入保存的自建节点，执行代理组与域名规则并提供快照下载。
-
-## 进阶模式设置
-
-- 重命名支持按顺序执行文本与正则替换、编辑和保存；聚合预览显示最终名称，错误正则、空匹配和空结果会被拒绝。
-- AI 出口可选任意已支持协议的链接导入节点、订阅节点；兼容既有保存节点的绑定。额外服务域名每行一个，接口不返回节点凭据。
-- 代理组配置使用 JSON 数组，每个组需要 `name` 与 `type`。编辑器以原始 JSON 文本读写，保留数字精度。
-- 设置保存使用独立接口，不更新订阅来源、自建节点、基础模板或原有域名规则。
-
-倍率正则与重命名可保存/重新读取；AI 和代理组设置已接入最终配置生成器。页面仅通过协议链接导入节点，已移除自建 JSON 参数编辑栏；既有服务端配置/API 保留兼容。
-
-## 倍率与重命名预览
-
-自动识别原始名称中的「倍率:0.5」「rate=0.5」「0.5x」「0.5倍」「0.5×」等标记。小于 1 为低倍率，等于 1 为标准，大于 1 为高倍率；未识别仍进标准组，但不会伪造实际倍率为 1。
-
-直接导入列表可逐节点勾选「自建（0 倍率）」，优先于名称识别及倍率覆盖，使用独立 `🏠 自建` 手动选择组。电报组提供该组作为选项；精简方案也生成电报选择组和相应分流，在 Clash Verge 中选择自建即可只使用 0 倍率节点。没有标记节点时不生成空自建组。标记随生成计划持久化，页面输入/标记在刷新后清空。普通默认仍优先低倍率。
-
-识别先于重命名。重命名不会改变节点 ID 或原始来源名称；文本与正则按顺序执行，完成后添加国旗前缀，再处理同名和内置策略名冲突。覆盖 249 个国家/地区的中英文名称、ISO 两字母代码（常用代码兼容小写）、UK/USA/UAE 和主要城市名；SG/CN/HK/TW/JP、SG01、HK-01 均支持。代码按词边界匹配，避免把普通英文单词片段当国家；AI/SS 易与功能/协议混淆，只按完整地区名称识别。已有国旗不重复添加；无法识别时保持名称。来源限定规则只有匹配来源时生效。
-
-同一连接节点的不同来源名称若给出不同明确倍率，记录冲突并暂用较高值；页面显示冲突数量。支持通过 API 手动覆盖，优先级为节点覆盖 → 原始名称识别 → 来源默认 → 标准兜底。
-
-POST /api/aggregate/preview 增加可选 policy：
-- rename_rules：文本/正则重命名数组，可含 source_id。
-- rate_pattern：自定义正则，首个捕获组为数字；留空用自动识别。
-- source_rates：以来源 ID 为键，设置 pattern 与 default。
-- rate_overrides：以聚合节点 ID 为键，设置非负有限倍率。
-- self_hosted_ids：直接链接节点的稳定 ID 数组，手动指定自建，rate_group=self、rate_source=self_hosted、rate=0；去重后的同一连接统一生效，未知/非链接节点 ID 拒绝。
-
-响应节点包含 rate_group、rate_source、可选 rate、冲突和值；rate_counts 汇总自建/低/标准/高、未知和冲突。RatePattern 与重命名可通过进阶「保存转换设置」保存；来源默认及节点覆盖目前通过 API 使用，尚未提供逐节点编辑界面。
-
-默认 AI 规则在 ACL4SSR AI/OpenAi 清单之外，补充 [Net.Coffee GPT/Codex](https://ip.net.coffee/gpt/site.html) 与 [Claude](https://ip.net.coffee/claude/site.html) 的域名、CDN、认证、语音、遥测和 Claude IPv4/IPv6/ASN 兜底。补充清单内嵌随镜像发布，ACL4SSR 自动更新不会覆盖它；未绑定 AI 时跟随方案 AI 组（无该组则普通选择），绑定后全部使用固定 AI 出口，并优先于其他规则。`none` 无 AI 绑定时不添加 AI 补充；标记自建时仍保留电报服务分流。Claude 的可选 geosite/NTP 扩展未默认启用；IP-ASN 需要 Mihomo 的 ASN 数据库。
-
-## 本地规则导入与优先级
-
-ACL4SSR 初始规则包含在项目和镜像中，前端支持 [ACL4SSR 官网远程配置](https://acl4ssr-sub.github.io/) 中全部 17 个 ACL4SSR 在线模板，或只使用自定义规则，不需要填写远程地址。17 个模板和 40 个初始规则文件位于 rules/ACL4SSR，Go embed 随二进制发布，离线可用；后台默认每天检查固定的 ACL4SSR 官方上游。
-
-- 默认系列：默认版、更多去广告、多国分组、无自动测速、无广告拦截。
-- 精简系列：精简版、更多去广告、无自动测速、故障转移、多模式、多国分组。
-- 完整系列：完整版、多模式、无自动测速、更多去广告、奈飞全量、谷歌细分。
-
-这些方案已支持实际分组生成，包括自动测速、故障转移、负载均衡与国家节点筛选。普通流量默认低倍率优先，高倍率从自动组排除；NoAuto 方案全部使用手动选择组。没有匹配节点的国家/奈飞节点组会移除。
-
-INI 保持 ACL4SSR 的 ruleset=策略组,规则文件 与 []GEOIP/[]FINAL 写法；引用改为相对本地路径。例如：
-
-```ini
-[custom]
-ruleset=🎯 全球直连,../LocalAreaNetwork.list
-ruleset=🚀 节点选择,../ProxyLite.list
-ruleset=🐟 漏网之鱼,[]FINAL
+```bash
+npm --prefix frontend run build
+go test ./...
+go vet ./...
+go build ./cmd/clash-acl
+docker build -t clash-acl:local .
 ```
 
-生成顺序为 **自定义规则 → 本地导入规则 → 最后一条兜底**，各层保留顺序，完全相同的重复规则保留第一次。外部模板的覆盖开关不会删除自定义规则。自定义 MATCH 优先于模板 FINAL，单独填写的兜底目标优先于两者。[Mihomo 匹配顺序](https://wiki.metacubex.one/config/rules/?h=rule+providers)。
+Python 辅助操作必须通过 uv；本项目不需要 Python。npm 提交 package-lock.json，Go 提交 go.mod/go.sum；不提交运行数据和真实订阅／节点凭据。
 
-模板中声明的分组名可以用于规则预览；可以用可选 JSON 映射改为自己的节点/分组，未知目标会报错。实际生成时同名自定义组优先，倍率与 AI 固定组不能被覆盖；空自定义组和循环引用会报错。自定义组支持 proxies、node_ids、filter、source_ids、rate_groups；node_ids 使用聚合返回的稳定 ID，其他条件按交集筛选。
-
-Mihomo 不支持的外部 URL-REGEX/USER-AGENT 可以通过兼容选项跳过，页面明确列出数量、类型和位置；默认开启。自定义不支持的规则始终报错，不会静默跳过。不支持 RULE-SET/SUB-RULE 的依赖展开、远程地址、本地任意路径或执行外部脚本。
-
-规则输入不随「保存转换设置」保存为全局默认，但会随本次生成地址持久化。实际生成中自动 AI 域名规则位于其他自定义规则之前，再导入模板规则，最后保留唯一兜底。
-
-## ACL4SSR 定时更新
-
-默认每 24 小时检查 ACL4SSR/ACL4SSR 的 master 分支；首次启动后台检查，重启后根据持久化的上次检查时间继续计时。基础模式提供「立即检查上游」及当前版本、检查时间和错误反馈。将 CLASH_ACL_RULE_AUTO_UPDATE=false 可停用定时检查，仍可手动更新。
-
-上游 [Update GFWList Rules 工作流](https://github.com/ACL4SSR/ACL4SSR/blob/master/.github/workflows/update.yml) 每天 00:00 UTC 从 GFWList 生成规则和 MRS。本服务下载 GitHub 的同一份仓库归档，只导入 17 个模板及实际引用规则，将上游地址改为本地引用；不执行其 Python/Actions 脚本，也不导入 MRS。可用时发送 ETag 条件请求，没有变化就保留当前版本。
-
-切换前校验完整模板、引用、规则兼容性、目标与实际生成分组；全部通过后，规则包及状态原子写入数据卷的 rule-updates/。每个生成请求固定一份规则库，避免更新过程中混用版本。失败保留上一份有效库；重启时规则包损坏或缺失则回到内置库并报告错误。版本显示为归一化规则包的 SHA-256 指纹，初始内置库显示固定提交号。
-
-已有地址保持不变。下载时发现规则版本更新，会使用快照内的节点及原转换参数重建规则；生成失败返回错误并保留旧快照。自定义规则优先及 AI 固定出口约束仍有效。已验证的规则存放在数据卷，不改动 Git 工作区文件，也无需重新构建镜像。内置初始快照记录见 rules/ACL4SSR/SOURCE.md。
-
-
-## 要解决的问题
-
-多个订阅往往各自带有分组和分流规则，直接合并完整配置容易产生重复节点、组名冲突和规则覆盖。客户端扩展脚本还会把自建节点、倍率分组与服务策略分散在不同位置，维护成本较高。
-
-clash_ACL 将来源节点与用户策略分离：选择需要聚合的来源，统一重命名、按倍率分类，再生成一份 Mihomo 配置。AI 服务可以绑定固定自建出口，避免普通代理组切换时改变 AI 出口。
-
-## 功能范围
-
-| 功能 | 目标行为 |
-| --- | --- |
-| 可选订阅聚合 | 支持单来源或勾选多个来源，只聚合节点 |
-| 多行协议链接导入 | 每行一个节点链接，支持混合协议、导入预览及逐行错误反馈 |
-| 来源管理 | 启用开关、更新状态、缓存与失败提示 |
-| 自建节点 | 仅链接导入，逐节点标记 0 倍率，保留完整协议字段 |
-| 节点身份与去重 | 保留来源及稳定 ID，不仅按节点名或服务器 IP 去重 |
-| 重命名 | 来源前缀、文本与正则替换、效果预览 |
-| 倍率分类 | 自建 0 倍率独立分组；低、标准、高倍率；未知倍率进入标准组 |
-| 代理组编辑 | 编辑组类型、成员条件、手动成员与顺序 |
-| 域名分流 | 编辑域名、规则集、目标组及优先级 |
-| AI 固定出口 | 指定导入或订阅节点，禁止自动切到机场或直连 |
-| 服务专用策略 | 支持中转站等额外域名的独立分流 |
-| 配置下载 | 固定下载地址，默认快照下载，可带 `refresh=true` 强制刷新 |
-
-已支持 Clash/Mihomo YAML 来源读取与多行直接节点协议链接解析；自建节点可保存完整 Mihomo 字段。协议链接包括 `ss://`、`tuic://`、`vless://`、`vmess://`、`trojan://`、`hysteria2://`（含 `hy2://`）和 `anytls://`；可混合粘贴，每行一个，忽略空行及首尾空白。
-
-在「直接节点链接」中粘贴，每行一个，自动解析并使用有效行，逐行展示名称、协议与错误；失败行不导入。修改文本自动替换当前页面的直接节点列表，可点击「重新解析」重试，逐节点勾选自建 0 倍率。链接仅保留在页面内存，刷新页面清空，不保存到服务器全局配置，也不会远程访问链接中的服务器。
-
-支持 SS SIP002 与旧版整体 Base64 链接、TUIC v4/v5、VLESS Reality、VMess Base64 JSON 与 AEAD URI、Trojan、Hysteria2/hy2、AnyTLS。支持 IPv6、百分号解码、基础 TLS/SNI/ALPN、WS、gRPC、HTTP/H2 和常见 SS 插件参数。Hysteria2 和 AnyTLS 省略端口时使用 443；其他协议需指定端口。
-
-当前不支持 Hysteria2 端口跳跃、Realm/ECH、XHTTP、AnyTLS 的 IP SNI 语义、任意插件及自定义扩展字段；未映射参数、冲突参数或不支持的传输会明确报错，不静默丢弃。需要保留这些设置时使用 Mihomo YAML。完整 Base64 订阅后续按需增加。
-
-自动导入后，聚合预览将有效链接与 YAML 缓存一起去重、执行倍率/重命名和国旗前缀；点击生成订阅后保存最终配置。未识别倍率归标准组，手动自建标记独立归 0 倍率组。
-
-格式依据：[Shadowsocks SIP002](https://shadowsocks.org/doc/sip002.html)、[Hysteria2 URI](https://v2.hysteria.network/docs/developers/URI-Scheme/)、[AnyTLS URI](https://github.com/anytls/anytls-go/blob/main/docs/uri_scheme.md)、[Mihomo 转换实现](https://github.com/MetaCubeX/mihomo/blob/Meta/common/convert/converter.go)。
-
-## 倍率分类
-
-| 分类 | 条件 |
-| --- | --- |
-| 低倍率 | 明确识别的倍率 `< 1` |
-| 标准倍率 | 明确识别的倍率 `= 1`，或未识别到倍率 |
-| 高倍率 | 明确识别的倍率 `> 1` |
-
-未识别到倍率只是按标准组处理，不代表确认该节点实际计费倍率为 1。支持节点手动覆盖与来源默认倍率。识别发生在重命名前，避免名称修改影响分类。
-
-默认普通流量优先低倍率，高倍率通过明确选择启用，不作为低倍率故障后的自动备用。
-
-## AI 固定出口
-
-通过域名及域名规则集识别 AI 服务，不使用专用应用、进程名或进程路径规则。AI 中转站和其他服务的域名可以单独配置目标策略，不根据应用名称猜测路由。
-
-AI 出口可选择当前页面已自动导入的协议链接节点、已读取的订阅节点，或保存的自建节点，不限定协议；直接链接支持 SS、TUIC、VLESS、VMess、Trojan、Hysteria2/hy2 与 AnyTLS，可混合导入。自动解析直接节点或完成来源读取后，AI 下拉列表自动更新；用稳定连接 ID 绑定，改名和去重不改变选择。保存导入节点绑定后，重新打开页面须重新提供其链接/来源；缺失节点会标明不可用并拒绝生成，不会悄悄改选其他出口。
-
-AI 专用策略只包含用户指定的一个出口节点，不自动加入普通选择组、其他节点或 DIRECT。指定出口不可用时请求失败，不自动改走其他出口。暂不生成同出口协议备用。
-
-勾选「AI 链式代理 → 通过前置节点连接 AI 出口」，生成器为出口节点写入 dialer-proxy，并建立「🔗 AI 前置选择」手动组。该组列出其他有效代理节点，排除出口自身与 DIRECT，默认按低/标准/高倍率顺序排列；在 Clash Verge 中选择前置节点即可切换入口。最终链路为：本机 → 前置节点 → 指定 VPS → AI 平台，AI 固定组仍只绑定 VPS，所有 AI 和 ACL 规则正常保留。至少需要一个额外代理节点；已有不兼容 dialer-proxy、未知引用、循环或空前置组会报错。
-
-API 中设置 ai.chain=true；节点、来源及链式设置随生成快照持久化，规则更新重建后仍保留。使用 Mihomo 的 [dialer-proxy](https://wiki.metacubex.one/config/proxies/dialer-proxy/) 实现，不使用已弃用的 relay 策略，也不修改用户正在使用的 Clash Verge 配置。静态校验不证明实际速度、节点连通性或最终出口 IP。
-
-TUIC、Hysteria2 等通过 UDP 建立连接的出口，需要选择支持 UDP 转发的前置节点；节点原有的 UDP、TLS 和传输参数不会被链式选项自动改写。
-
-AI 规则优先于可能覆盖相同域名的通用微软、Google、国外媒体等规则。该约束适用于进入 Mihomo 且以 rule 模式处理的流量；生成器无法约束绕过代理或被客户端全局模式覆盖的请求。
-
-## 实现方案
-
-```mermaid
-flowchart LR
-    A[勾选订阅来源] --> B[拉取与磁盘缓存]
-    B --> C[提取节点及来源]
-    D[自建节点] --> C
-    C --> E[倍率分类与去重]
-    E --> F[重命名]
-    F --> G[统一代理组与域名规则]
-    H[用户策略及基础模板] --> G
-    G --> I[有效配置快照]
-    I --> J[Mihomo 固定订阅地址]
-```
-
-- Go 后端提供 API、订阅下载和静态页面，最终以单个程序部署。
-- 前端在浏览器执行，不在 VPS 常驻前端开发服务。
-- 首版使用本地配置文件和磁盘缓存；拉取并发初始上限为 2。
-- 配置下载与来源刷新分离，下载优先返回已有有效快照。
-- 下载请求带 `refresh=true` 时，重新拉取该配置启用的来源并等待生成结果；省略参数或使用 `refresh=false` 时不强制刷新。首次没有快照时执行一次生成。
-- 强制刷新仍遵守并发限制和失败缓存策略；使用旧缓存时表明状态，无法生成有效配置时返回错误，不把旧快照冒充为刷新成功。
-- 来源失败时保留最近成功缓存；生成失败时不替换有效快照。
-- 测速交给客户端 Mihomo，VPS 专注于订阅读取和配置生成。
-- 真实订阅及节点凭据仅存于私有运行数据，不进入 Git。
-
-## 开发顺序
-
-1. Go 项目、配置存储与基础服务。
-2. YAML 来源读取、刷新与缓存，以及多行协议链接导入。
-3. 多来源聚合、节点身份与去重。
-4. 倍率分类与重命名预览。
-5. 分组、AI 固定出口与域名规则生成。
-6. 有效快照和固定下载地址。
-7. 最小管理页面。
-8. 客户端迁移验证、Docker 镜像构建与 VPS 部署。
-
-来源读取、协议链接自动导入、聚合、倍率/重命名、代理组、AI 固定出口、完整生成、持久化快照下载与页面操作已完成。真实节点连通性、出口 IP、自建故障行为和 VPS 部署仍需在用户环境验收；静态校验不证明实际出口 IP。
-
-## Docker 镜像发布
-
-已提供 [GitHub Actions workflow](.github/workflows/docker-image.yml)，镜像托管于 GHCR：`ghcr.io/b1xcy/clash_acl`。
-
-- 用户推送到 `main` 时发布 `latest`，推送 `v*` 标签时发布同名版本标签；同时发布提交 SHA 标签。
-- 支持在 `main` 或 `v*` 标签上手动触发，使用 `GITHUB_TOKEN` 登录 GHCR。
-- 初始构建平台为 `linux/amd64`；VPS 通过 Docker 拉取运行，配置与缓存使用数据卷持久化。
-
-Dockerfile 采用多阶段构建，构建阶段按 `go.mod` 与 `go.sum` 下载 YAML 依赖、运行 Go 测试并编译静态程序；运行阶段使用 scratch，只包含内嵌 HTML 的程序、HTTPS 根证书和数据目录。构建上下文仅包含源码、HTML 及模块定义，不打包 `.env` 或运行数据。
-
-agent 只做本地 commit，尚未向 GHCR 发布镜像。用户推送后，workflow 将构建并发布基础服务镜像；发布完成后，上面的运行命令可以把 `clash-acl:local` 替换为 `ghcr.io/b1xcy/clash_acl:latest`。
-
-## 开发与交接
-
-- 开发前阅读 [agent.md](agent.md) 和 [handoff.md](handoff.md)。
-- 每完成一个功能点，都要验证、更新 handoff，并将相关代码与文档一起做本地 commit；Git push 由用户自行执行。
-- 新配置应作为独立配置在客户端验证，确认后再处理旧扩展脚本，避免重复注入。
-- Python 辅助操作一律使用 uv，详细规则见 agent.md。
-
-仓库：[b1xcy/clash_ACL](https://github.com/b1xcy/clash_ACL)。
-
-每次代码改动完成后必须执行 `docker build -t clash-acl:local .`，验证本次代码与 HTML 随镜像交付，再做本地提交。
+[API 与配置](docs/API.md) · [当前交接](docs/handoff.md) · [历史记录](docs/history.md) · [ACL 规则来源](internal/assets/rules/ACL4SSR/SOURCE.md)
