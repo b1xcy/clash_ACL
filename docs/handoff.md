@@ -11,6 +11,8 @@
 ## v1.2 发布
 
 - 用户已授权打版本标签并推送发布，本次使用 v1.2，包含 AI 前置 DIRECT 选项和旧订阅快照重建。Release 说明同步加入此项能力，沿用 GHCR 镜像、Linux amd64 包、完整源码 ZIP 和 SHA256SUMS 发布流程。
+- 已原子推送 main 与 v1.2，标签指向 bc6f12f96a7393a9c376a9cf6737cb1711e5993b。[Release 1.2](https://github.com/b1xcy/clash_ACL/releases/tag/v1.2) 正式发布；[Release Actions](https://github.com/b1xcy/clash_ACL/actions/runs/38604349414) 与 main 镜像 Actions 38604348669 均成功。
+- GHCR v1.2、1.2 及发布时 latest 均匿名拉取 HTTP 200，摘要 sha256:725556a9034ae0180d1560cf4aa9bbaf4f364ec40d58df7b905c2e7712be9734。三个附件已实际下载，两个压缩包 SHA256SUMS 校验通过，源码 ZIP 覆盖标签全部 116 个跟踪文件。保留旧版本，VPS 未修改。
 
 ## 按来源过滤 HTTP/SOCKS
 
