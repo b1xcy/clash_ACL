@@ -25,8 +25,12 @@ func TestEndpointsWithoutCredentials(t *testing.T) {
 		}
 	}
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/download?url=https%3A%2F%2Fexample.invalid%2Fsub", nil))
-	if response.Code != http.StatusNotImplemented {
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("proxies:\n  - {name: Test, type: ss, server: example.invalid, port: 443, cipher: aes-128-gcm, password: synthetic-secret}\n"))
+	}))
+	defer source.Close()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/download?url="+source.URL, nil))
+	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "text/yaml; charset=utf-8" {
 		t.Fatal("download requires credentials")
 	}
 }

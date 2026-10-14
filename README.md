@@ -2,7 +2,7 @@
 
 面向 Mihomo 的自建订阅聚合与策略生成器，使用 Go 实现，适合部署在低性能 VPS。
 
-**当前状态：已实现基础服务、订阅转换表单、来源管理、远程 YAML 读取、后台刷新、磁盘缓存、节点预览、聚合去重、本地规则导入/排序预览与转换设置保存。** 已支持多行协议链接解析、逐行预览与当前页面确认；已支持倍率分类和重命名预览；AI 分流与完整配置生成仍待实现，目前不能生成完整 Mihomo 订阅。
+**当前状态：已实现 YAML/协议链接导入、聚合去重、倍率/重命名、17 个本地 ACL4SSR 方案、实际代理组、AI 固定出口、完整 Mihomo YAML 生成与持久化快照下载。** API 已可生成可下载订阅，页面生成操作正在接入。
 
 打开服务根地址（本地为 `http://127.0.0.1:8080/`），使用类似 ACL4SSR 的订阅转换表单：输入多行订阅、选择 Mihomo 客户端、设置聚合，并在进阶模式编辑重命名、AI 自建出口和代理组配置。页面不展示开发进度。静态 HTML 内嵌在 Go 程序中，随 Docker 镜像交付，不依赖 CDN 或单独前端服务。打开即可使用，不需要登录或输入访问令牌。
 
@@ -53,7 +53,9 @@ Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/co
 | `GET /api/rules/presets` | 返回内置规则方案名称与 ID |
 | `POST /api/rules/preview` | 读取本地 INI/规则文件，输出自定义优先的完整规则顺序 |
 | `POST /api/generate/preview` | 生成实际组与完整配置，返回脱敏节点、代理组、规则数及来源状态；不返回节点凭据 |
-| `GET /download?url=...` | 接受订阅地址参数；生成器尚未实现，有效请求返回 HTTP 501 |
+| `POST /api/generate` | 接收转换参数并保存完整快照，返回固定下载地址和脱敏预览 |
+| `GET /download?id=...` | 返回已保存 YAML；refresh=true 等待刷新和重新生成 |
+| `GET /download?url=...` | 使用保存的默认设置与可选 preset 生成/读取快照 |
 
 所有接口均无需认证。订阅地址通过重复的 url 查询参数传入，地址中的 &、? 等字符由调用端 URL 编码；aggregate=false 只读取第一条，默认启用全部。读取不会修改服务器上保存的来源列表，缓存仍保留在数据目录。
 
@@ -65,10 +67,18 @@ curl --get http://127.0.0.1:8080/api/subscriptions \
   --data-urlencode 'refresh=true'
 ```
 
-接口先返回来源状态，使用相同 url 参数且省略 refresh 轮询，读取成功后响应的 previews 提供节点名称与类型。参数错误返回 400。/download 沿用同一组地址参数，但暂未实现配置生成。
+接口先返回来源状态，使用相同 url 参数且省略 refresh 轮询，读取成功后响应的 previews 提供节点名称与类型。参数错误返回 400。/download 沿用同一组地址参数，也可使用生成接口返回的快照 ID。
 配置读写接口保留，用于可选的服务器默认设置；前端读取订阅不依赖先保存配置。JSON 响应不缓存，日志和校验错误不打印完整来源地址或节点秘密。
 
-配置结构包含 `fetch_concurrency`（默认 2）、`sources`、`self_hosted_nodes`、`rename_rules`、`groups`、`rules`、`ai` 与 `base`。自建节点使用 `{ "id": "fixed", "proxy": { ... } }`，`proxy` 保存完整 Mihomo 节点字段；`ai.node_id` 只能引用自建节点 ID。当前只保存这些策略，尚不执行生成。
+配置结构包含 `fetch_concurrency`（默认 2）、`sources`、`self_hosted_nodes`、`rename_rules`、`groups`、`rules`、`ai` 与 `base`。自建节点使用 `{ "id": "fixed", "proxy": { ... } }`，`proxy` 保存完整 Mihomo 节点字段；`ai.node_id` 只能引用自建节点 ID。生成器执行这些策略，base 中的客户端设置保留，mode 固定为 rule，proxies/proxy-groups/rules 由生成器统一输出。
+
+## 生成与快照下载
+
+POST /api/generate 接收 urls、aggregate、direct_links、policy、ai、groups 与 rules。省略 policy/ai/groups 使用保存的默认设置；rules 包含 preset、custom_rules、policy_map、fallback、skip_unsupported。默认方案为 acl4ssr-online；设置 preset=none 可只使用自定义规则。POST /api/generate?refresh=true 强制刷新来源。
+
+成功返回 download_path（/download?id=...）、generated_at、using_cache、refresh_succeeded 和脱敏 preview，不返回节点认证参数。完整 YAML 通过下载地址获取。直接节点、自建节点及转换参数保存于私有数据目录的 snapshots/ 文件，重启后地址仍有效；快照地址固定当时的设置，修改默认设置后须重新生成新地址。
+
+普通下载与 refresh=false 直接返回已有快照；首次没有快照时拉取缺少的来源缓存并生成。refresh=true 等待启用来源刷新与生成，沿用默认并发 2 和同来源请求合并；同一快照的并发生成也合并。失败来源有成功缓存时可继续生成，响应头 X-Clash-ACL-Using-Cache 为 true，X-Clash-ACL-Refresh-Succeeded 为 false。缺少可用来源、AI/分组/规则错误或保存失败会返回错误，保留已有完整快照。
 
 PUT 是整体替换操作，更新前应先读取完整配置。非法 JSON、重复来源 ID、无效来源 URL 和不存在的 AI 节点引用会返回 HTTP 400，并保留原文件。成功写入使用同目录临时文件与重命名；节点扩展字段和 JSON 数字精度在读写中保留。
 

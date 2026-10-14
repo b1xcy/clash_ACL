@@ -2,20 +2,24 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 func newHandler(configPath string) http.Handler {
 	mux := http.NewServeMux()
 	var configMu sync.RWMutex
 	sourceManager := newSourceManager(filepath.Dir(configPath))
+	snapshotStore := newSnapshotStore(filepath.Dir(configPath), sourceManager)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache")
@@ -38,7 +42,7 @@ func newHandler(configPath string) http.Handler {
 			sources = append(sources, sourceManager.view(source))
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"capabilities": map[string]bool{"conversion": false, "uri_import": true, "aggregation": true, "rule_import": true, "node_policy": true}, "sources": sources,
+			"capabilities": map[string]bool{"conversion": true, "uri_import": true, "aggregation": true, "rule_import": true, "node_policy": true}, "sources": sources,
 			"counts": map[string]int{"sources": len(config.Sources), "enabled": enabled, "self_hosted": len(config.SelfHostedNodes), "groups": len(config.Groups)},
 		})
 	})
@@ -374,12 +378,93 @@ func newHandler(configPath string) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "saved"})
 	})
 	mux.HandleFunc("GET /download", func(w http.ResponseWriter, r *http.Request) {
-
-		if _, err := requestSources(r.URL.Query()); err != nil {
+		refresh, err := requestRefresh(r.URL.Query())
+		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
-		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "subscription generation is not implemented yet"})
+		id := r.URL.Query().Get("id")
+		var plan GenerationPlan
+		if id != "" {
+			if !validSnapshotID(id) || len(r.URL.Query()["url"]) > 0 {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "use a valid snapshot ID without url parameters"})
+				return
+			}
+			snapshot, err := snapshotStore.read(id)
+			if errors.Is(err, os.ErrNotExist) {
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "subscription snapshot not found"})
+				return
+			}
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read subscription snapshot"})
+				return
+			}
+			plan = snapshot.Plan
+		} else {
+			if _, err := requestSources(r.URL.Query()); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+			configMu.RLock()
+			config, err := readConfig(configPath)
+			configMu.RUnlock()
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read configuration"})
+				return
+			}
+			aggregate := r.URL.Query().Get("aggregate") != "false"
+			request := GenerationRequest{URLs: r.URL.Query()["url"], Aggregate: &aggregate, Rules: RuleRequest{Preset: r.URL.Query().Get("preset"), SkipUnsupported: true}}
+			plan, id, err = snapshotPlan(config, request)
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+		}
+		snapshot, err := snapshotStore.get(r.Context(), id, plan, refresh)
+		if err != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="clash-acl.yaml"`)
+		w.Header().Set("X-Clash-ACL-Snapshot", id)
+		w.Header().Set("X-Clash-ACL-Generated-At", snapshot.GeneratedAt.Format(time.RFC3339))
+		w.Header().Set("X-Clash-ACL-Using-Cache", strconv.FormatBool(snapshotUsingCache(snapshot)))
+		w.Header().Set("X-Clash-ACL-Refresh-Succeeded", strconv.FormatBool(refresh && !snapshotUsingCache(snapshot)))
+		w.Write([]byte(snapshot.YAML))
+	})
+	mux.HandleFunc("POST /api/generate", func(w http.ResponseWriter, r *http.Request) {
+		refresh, err := requestRefresh(r.URL.Query())
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		reader := http.MaxBytesReader(w, r.Body, maxSubscriptionSize)
+		defer reader.Close()
+		request, err := decodeGenerationRequest(reader)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		configMu.RLock()
+		config, err := readConfig(configPath)
+		configMu.RUnlock()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read configuration"})
+			return
+		}
+		plan, id, err := snapshotPlan(config, request)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		snapshot, err := snapshotStore.get(r.Context(), id, plan, refresh)
+		if err != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"id": id, "download_path": "/download?id=" + id, "generated_at": snapshot.GeneratedAt, "using_cache": snapshotUsingCache(snapshot), "refresh_succeeded": refresh && !snapshotUsingCache(snapshot), "preview": snapshot.Preview})
 	})
 
 	mux.HandleFunc("GET /api/subscriptions", func(w http.ResponseWriter, r *http.Request) {
@@ -416,6 +501,14 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(value)
+}
+
+func requestRefresh(query url.Values) (bool, error) {
+	value := query.Get("refresh")
+	if value != "" && value != "true" && value != "false" {
+		return false, errors.New("refresh must be true or false")
+	}
+	return value == "true", nil
 }
 
 func requestSources(query url.Values) ([]Source, error) {
