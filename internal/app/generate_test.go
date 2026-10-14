@@ -36,8 +36,9 @@ func TestPlaintextFilterGenerationAndSnapshotPlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	config.DropPlaintext = true
+	config.SourceDropPlaintext = map[string]bool{"public": true, "private": false}
 	plan, id, err := snapshotPlan(config, request)
-	if err != nil || id == oldID || !plan.Request.Policy.DropPlaintext {
+	if err != nil || id == oldID || !plan.Request.Policy.DropPlaintext || !plan.Request.Policy.SourceDropPlaintext["public"] || plan.Request.Policy.SourceDropPlaintext["private"] {
 		t.Fatal("snapshot did not freeze plaintext filtering")
 	}
 	output, preview, err := generateConfig(context.Background(), manager, plan.Config, plan.Request, false)

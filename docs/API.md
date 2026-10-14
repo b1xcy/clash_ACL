@@ -48,7 +48,7 @@ curl --get http://127.0.0.1:8080/api/subscriptions \
 
 POST /api/generate 接收 urls、aggregate、direct_links、policy、ai、groups（或 groups_json 文本）与 rules。省略 policy/ai/groups 使用保存的默认设置；rules 包含 preset、custom_rules、policy_map、fallback、skip_unsupported。默认方案为 acl4ssr-online；设置 preset=none 可只使用自定义规则。POST /api/generate?refresh=true 强制刷新来源。
 
-`policy.drop_plaintext` 默认 false；开启时过滤无 TLS 的 HTTP/SOCKS5、SOCKS4、无 TLS 的 VLESS、无 TLS 且 cipher 为 none/zero 的 VMess，以及 cipher 为 none/dummy 且无加密插件的 SS（obfs TLS 伪装仍视为明文；v2ray-plugin/gost-plugin 启用 TLS 则保留，其他插件不推断）。HTTP/SOCKS5 的 TLS 字段遵循 [Mihomo 配置](https://wiki.metacubex.one/config/proxies/http/)。PUT/GET /api/options 的 `drop_plaintext` 保存／读取默认设置。聚合与生成 preview 的 `filtered_count` 为去重后丢弃数量；原订阅缓存保持完整。生成请求显式 policy 优先于保存设置，快照固定此开关，后续 refresh 沿用。全部过滤时拒绝生成；选中的 AI 出口被过滤时按缺失出口报错。
+`policy.drop_plaintext` 为 HTTP/SOCKS 类型过滤的默认策略，默认 false；历史字段名保持兼容。开启时去除 http/socks4/socks5，包括启用 TLS 的 HTTP/SOCKS5；不判断或过滤 VLESS、VMess、SS 等其他协议。`policy.source_drop_plaintext` 为来源 ID → bool 映射，显式 true 丢弃、false 保留，未指定则跟随默认。来源 ID 使用 /api/subscriptions 返回的稳定 ID，订阅换顺序仍有效；PUT/GET /api/options 同名字段保存／读取策略。聚合与生成 preview 的 filtered_count 为去重后丢弃的节点数；原订阅缓存保持完整。同一节点有多个来源时去除要求丢弃的来源记录，任一允许来源仍可保留节点，其倍率／重命名只依据保留的来源。生成请求显式 policy 优先于保存设置，快照固定默认与来源覆盖，后续 refresh 沿用。全部过滤时拒绝生成；选中的 AI 出口被过滤时按缺失出口报错。此过滤是用户的协议偏好，不表示保留的公共节点已通过安全审查。
 
 成功返回 download_path（/download?id=...）、generated_at、using_cache、refresh_succeeded 和脱敏 preview，不返回节点认证参数。完整 YAML 通过下载地址获取。直接节点、自建节点及转换参数保存于私有数据目录的 snapshots/ 文件，重启后地址仍有效；快照地址固定当时的设置，修改默认设置后须重新生成新地址。
 

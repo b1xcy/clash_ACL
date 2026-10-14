@@ -2,7 +2,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api, post } from './api'
 
 export function useConverter() {
-  const form = reactive({ subscriptions: '', directLinks: '', aggregate: true, dropPlaintext: false, excludedURLs: [], preset: 'acl4ssr-online', ratePattern: '', renameRules: [], aiNodes: [], aiChain: false, aiTestURL: '', aiDomains: '', groupsJSON: '[]', customRules: '', policyMap: '{}', fallback: '', skipUnsupported: true, refreshGeneration: false })
+  const form = reactive({ subscriptions: '', directLinks: '', aggregate: true, dropPlaintext: false, sourceFilters: {}, excludedURLs: [], preset: 'acl4ssr-online', ratePattern: '', renameRules: [], aiNodes: [], aiChain: false, aiTestURL: '', aiDomains: '', groupsJSON: '[]', customRules: '', policyMap: '{}', fallback: '', skipUnsupported: true, refreshGeneration: false })
   const ready = ref(false), notice = ref(''), noticeType = ref(''), advanced = ref(false)
   const sources = ref([]), sourcePreviews = ref({}), sourceURLs = ref([]), sourcesLoading = ref(false)
   const imported = ref([]), validLinks = ref([]), selfHostedIDs = ref([]), savedNodes = ref([])
@@ -22,7 +22,7 @@ export function useConverter() {
     const selected = new Set(selectedURLs.value)
     const subscriptionNodes = sources.value.flatMap((source, index) => selected.has(sourceURLs.value[index]) ? sourcePreviews.value[source.id] || [] : [])
     const directNodes = imported.value.filter(line => !line.error).map(line => ({ id: line.node_id, name: line.name, type: line.type }))
-    const retained = form.dropPlaintext && aggregation.value ? new Set(nodes.value.map(node => node.id)) : null
+    const retained = (form.dropPlaintext || Object.keys(form.sourceFilters).length) && aggregation.value ? new Set(nodes.value.map(node => node.id)) : null
     const seen = new Set()
     return [['直接导入', directNodes], ['订阅节点', subscriptionNodes], ['既有保存节点', savedNodes.value]].map(([label, items]) => ({ label, nodes: items.filter(node => { if (!node.id || seen.has(node.id) || (retained && label !== '既有保存节点' && !retained.has(node.id))) return false; seen.add(node.id); return true }) }))
   })
@@ -38,9 +38,22 @@ export function useConverter() {
     generation.value = null
     preview.value = null
   }
+  function sourceFilterID(url) {
+    return sources.value[sourceURLs.value.indexOf(url)]?.id
+  }
+  function sourceFilterValue(url) {
+    const value = form.sourceFilters[sourceFilterID(url)]
+    return value === undefined ? '' : String(value)
+  }
+  function setSourceFilter(url, value) {
+    const id = sourceFilterID(url)
+    if (!id) return
+    if (value === '') delete form.sourceFilters[id]
+    else form.sourceFilters[id] = value === 'true'
+  }
   function nodePolicy() {
     const ids = new Set(imported.value.filter(line => !line.error).map(line => line.node_id))
-    return { drop_plaintext: form.dropPlaintext, rename_rules: form.renameRules, rate_pattern: form.ratePattern.trim(), self_hosted_ids: selfHostedIDs.value.filter(id => ids.has(id)) }
+    return { source_drop_plaintext: { ...form.sourceFilters }, drop_plaintext: form.dropPlaintext, rename_rules: form.renameRules, rate_pattern: form.ratePattern.trim(), self_hosted_ids: selfHostedIDs.value.filter(id => ids.has(id)) }
   }
   function generationRequest() {
     const groups = JSON.parse(form.groupsJSON || '[]')
@@ -124,7 +137,7 @@ export function useConverter() {
       if (current !== aggregateRevision) return
       nodes.value = data.nodes
       aggregation.value = data
-      aggregateSummary.value = `输入 ${data.input_count} 个节点，保留 ${data.node_count} 个，合并重复 ${data.duplicate_count} 个，丢弃明文隧道 ${data.filtered_count || 0} 个。自建 ${data.rate_counts.self} / 低 ${data.rate_counts.low} / 标准 ${data.rate_counts.standard} / 高 ${data.rate_counts.high}；未识别 ${data.rate_counts.unknown}；倍率冲突 ${data.rate_counts.conflicts}。` + (data.sources.some(source => source.using_cache) ? '部分来源使用最近成功缓存。' : '')
+      aggregateSummary.value = `输入 ${data.input_count} 个节点，保留 ${data.node_count} 个，合并重复 ${data.duplicate_count} 个，丢弃 HTTP/SOCKS ${data.filtered_count || 0} 个。自建 ${data.rate_counts.self} / 低 ${data.rate_counts.low} / 标准 ${data.rate_counts.standard} / 高 ${data.rate_counts.high}；未识别 ${data.rate_counts.unknown}；倍率冲突 ${data.rate_counts.conflicts}。` + (data.sources.some(source => source.using_cache) ? '部分来源使用最近成功缓存。' : '')
     } catch (error) { if (epoch === aggregateRevision) aggregateSummary.value = error.message }
   }
   async function generate(previewOnly = false) {
@@ -148,7 +161,7 @@ export function useConverter() {
   async function saveOptions() {
     saving.value = true
     try {
-      await post('/api/options', { drop_plaintext: form.dropPlaintext, rename_rules: form.renameRules, rate_pattern: form.ratePattern.trim(), ai: { node_id: '', node_ids: [...form.aiNodes], test_url: form.aiTestURL.trim(), chain: form.aiChain, domains: lines(form.aiDomains) }, groups_json: form.groupsJSON }, 'PUT')
+      await post('/api/options', { source_drop_plaintext: { ...form.sourceFilters }, drop_plaintext: form.dropPlaintext, rename_rules: form.renameRules, rate_pattern: form.ratePattern.trim(), ai: { node_id: '', node_ids: [...form.aiNodes], test_url: form.aiTestURL.trim(), chain: form.aiChain, domains: lines(form.aiDomains) }, groups_json: form.groupsJSON }, 'PUT')
       message('转换设置已保存。', 'success')
     } catch (error) { message(error.message, 'error') } finally { saving.value = false }
   }
@@ -204,16 +217,16 @@ export function useConverter() {
     uriSummary.value = '正在自动解析…'; scheduleAggregate()
     uriTimer = setTimeout(() => parseLinks().catch(() => {}), 350)
   }, { flush: 'sync' })
-  watch(() => [form.dropPlaintext, form.ratePattern, JSON.stringify(form.renameRules)], scheduleAggregate)
+  watch(() => [form.dropPlaintext, JSON.stringify(form.sourceFilters), form.ratePattern, JSON.stringify(form.renameRules)], scheduleAggregate)
   onMounted(async () => {
     try {
       const [options, available] = await Promise.all([api('/api/options'), api('/api/rules/presets'), loadAIRules(), loadRuleStatus()])
-      Object.assign(form, { dropPlaintext: !!options.options.drop_plaintext, renameRules: options.options.rename_rules || [], ratePattern: options.options.rate_pattern || '', aiNodes: options.options.ai.node_ids ?? (options.options.ai.node_id ? [options.options.ai.node_id] : []), aiTestURL: options.options.ai.test_url || '', aiChain: !!options.options.ai.chain, aiDomains: (options.options.ai.domains || []).join('\n'), groupsJSON: options.options.groups_json || '[]' })
+      Object.assign(form, { sourceFilters: options.options.source_drop_plaintext || {}, dropPlaintext: !!options.options.drop_plaintext, renameRules: options.options.rename_rules || [], ratePattern: options.options.rate_pattern || '', aiNodes: options.options.ai.node_ids ?? (options.options.ai.node_id ? [options.options.ai.node_id] : []), aiTestURL: options.options.ai.test_url || '', aiChain: !!options.options.ai.chain, aiDomains: (options.options.ai.domains || []).join('\n'), groupsJSON: options.options.groups_json || '[]' })
       savedNodes.value = options.self_hosted_nodes || []
       presets.value = [...available.presets, { id: 'none', name: '自定义规则（保留已启用服务分流）' }]
       ready.value = true
     } catch (error) { message(error.message, 'error') }
   })
   onBeforeUnmount(() => [sourceTimer, sourcePoll, uriTimer, aggregateTimer, ruleTimer].forEach(clearTimeout))
-  return { form, ready, notice, noticeType, message, advanced, allURLs, selectedURLs, sources, sourcePreviews, sourcesLoading, imported, selfHostedIDs, nodes, aggregation, aggregateSummary, uriSummary, presets, ruleStatus, builtinAIRules, aiPlaceholder, aiChoices, chosenAI, aiMissing, generation, preview, generating, previewing, saving, generationSummary, downloadURL, refreshDownload, rulesText, ruleSummary, rulePreviewing, yamlText, yamlNodes, yamlSummary, yamlBusy, parseLinks, readSources, aggregateNodes, generate, saveOptions, previewRules, updateRules, parseYAML, copyURL }
+  return { form, ready, notice, noticeType, message, advanced, allURLs, selectedURLs, sources, sourcePreviews, sourcesLoading, imported, selfHostedIDs, nodes, aggregation, aggregateSummary, uriSummary, presets, ruleStatus, builtinAIRules, aiPlaceholder, aiChoices, chosenAI, aiMissing, generation, preview, generating, previewing, saving, generationSummary, downloadURL, refreshDownload, rulesText, ruleSummary, rulePreviewing, yamlText, yamlNodes, yamlSummary, yamlBusy, parseLinks, readSources, aggregateNodes, generate, saveOptions, previewRules, updateRules, parseYAML, copyURL, sourceFilterID, sourceFilterValue, setSourceFilter }
 }

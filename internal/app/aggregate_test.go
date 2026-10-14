@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -31,7 +32,7 @@ func TestAggregationFiltersPlaintextSubscriptionNodes(t *testing.T) {
 	now := time.Now()
 	proxies := []map[string]any{
 		{"name": "Plain", "type": "http", "server": "plain.invalid", "port": 8080},
-		{"name": "Encrypted", "type": "socks5", "server": "secure.invalid", "port": 443, "tls": true},
+		{"name": "Encrypted", "type": "vless", "server": "secure.invalid", "port": 443, "tls": true, "uuid": "00000000-0000-4000-8000-000000000001"},
 	}
 	if err := manager.writeCache(sources[0], SourceCache{LastSuccess: &now, LastAttempt: &now, Proxies: proxies}); err != nil {
 		t.Fatal(err)
@@ -59,6 +60,27 @@ func TestAggregationFiltersPlaintextSubscriptionNodes(t *testing.T) {
 	cache, err := manager.readCache(sources[0])
 	if err != nil || len(cache.Proxies) != 2 {
 		t.Fatal("filtering modified original subscription cache")
+	}
+	for _, defaultDrop := range []bool{false, true} {
+		policy := NodePolicyOptions{DropPlaintext: defaultDrop, SourceDropPlaintext: map[string]bool{sources[0].ID: !defaultDrop}}
+		body, _ := json.Marshal(map[string]any{"urls": urls, "policy": policy})
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/aggregate/preview", strings.NewReader(string(body))))
+		var result struct {
+			Count int `json:"node_count"`
+		}
+		json.Unmarshal(response.Body.Bytes(), &result)
+		want := 1
+		if defaultDrop {
+			want = 2
+		}
+		if response.Code != http.StatusOK || result.Count != want {
+			t.Fatal("source override was not used in API aggregation", response.Body.String())
+		}
+		output, preview, err := generateConfig(context.Background(), manager, defaultConfig(), GenerationRequest{URLs: urls, Policy: &policy, Rules: RuleRequest{Preset: "none"}}, false)
+		if err != nil || len(preview.Nodes) != want || strings.Contains(string(output), "plain.invalid") != defaultDrop {
+			t.Fatal("generation and aggregation disagree about source filtering", err)
+		}
 	}
 }
 

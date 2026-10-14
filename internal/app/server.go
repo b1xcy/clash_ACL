@@ -80,7 +80,7 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 			nodes = append(nodes, map[string]string{"id": node.ID, "name": name})
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"options": ConversionOptions{DropPlaintext: config.DropPlaintext, RenameRules: config.RenameRules, RatePattern: config.RatePattern, AI: config.AI, GroupsJSON: string(groups)}, "self_hosted_nodes": nodes,
+			"options": ConversionOptions{SourceDropPlaintext: config.SourceDropPlaintext, DropPlaintext: config.DropPlaintext, RenameRules: config.RenameRules, RatePattern: config.RatePattern, AI: config.AI, GroupsJSON: string(groups)}, "self_hosted_nodes": nodes,
 		})
 	})
 	mux.HandleFunc("PUT /api/options", func(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +101,7 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 		config.RenameRules, config.AI, config.Groups = options.RenameRules, options.AI, groups
 		config.RatePattern = options.RatePattern
 		config.DropPlaintext = options.DropPlaintext
+		config.SourceDropPlaintext = options.SourceDropPlaintext
 		if err := validateConfig(config); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return

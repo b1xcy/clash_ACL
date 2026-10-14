@@ -15,12 +15,13 @@ type SourceRate struct {
 }
 
 type NodePolicyOptions struct {
-	DropPlaintext bool                  `json:"drop_plaintext"`
-	SelfHostedIDs []string              `json:"self_hosted_ids,omitempty"`
-	RenameRules   []RenameRule          `json:"rename_rules"`
-	RatePattern   string                `json:"rate_pattern"`
-	SourceRates   map[string]SourceRate `json:"source_rates"`
-	RateOverrides map[string]float64    `json:"rate_overrides"`
+	SourceDropPlaintext map[string]bool       `json:"source_drop_plaintext,omitempty"`
+	DropPlaintext       bool                  `json:"drop_plaintext"`
+	SelfHostedIDs       []string              `json:"self_hosted_ids,omitempty"`
+	RenameRules         []RenameRule          `json:"rename_rules"`
+	RatePattern         string                `json:"rate_pattern"`
+	SourceRates         map[string]SourceRate `json:"source_rates"`
+	RateOverrides       map[string]float64    `json:"rate_overrides"`
 }
 
 var defaultRatePatterns = []*regexp.Regexp{
@@ -118,10 +119,34 @@ func applyNodePolicy(input []AggregatedNode, options NodePolicyOptions) ([]Aggre
 		selfHosted[id] = true
 	}
 	nodes := append([]AggregatedNode(nil), input...)
-	if options.DropPlaintext {
+	if options.DropPlaintext || len(options.SourceDropPlaintext) > 0 {
 		nodes = make([]AggregatedNode, 0, len(input))
 		for _, node := range input {
-			if !isPlaintextProxy(node.Proxy) {
+			if !isHTTPSOCKSProxy(node.Proxy) {
+				nodes = append(nodes, node)
+				continue
+			}
+			if len(node.Origins) == 0 {
+				if !options.DropPlaintext {
+					nodes = append(nodes, node)
+				}
+				continue
+			}
+			origins := make([]NodeOrigin, 0, len(node.Origins))
+			for _, origin := range node.Origins {
+				drop := options.DropPlaintext
+				if override, exists := options.SourceDropPlaintext[origin.SourceID]; exists {
+					drop = override
+				}
+				if !drop {
+					origins = append(origins, origin)
+				}
+			}
+			if len(origins) > 0 {
+				if len(origins) != len(node.Origins) {
+					node.Name = origins[0].OriginalName
+				}
+				node.Origins = origins
 				nodes = append(nodes, node)
 			}
 		}
@@ -221,31 +246,7 @@ func applyNodePolicy(input []AggregatedNode, options NodePolicyOptions) ([]Aggre
 	return nodes, nil
 }
 
-func isPlaintextProxy(proxy map[string]any) bool {
+func isHTTPSOCKSProxy(proxy map[string]any) bool {
 	kind, _ := proxy["type"].(string)
-	tls, _ := proxy["tls"].(bool)
-	if tls && containsString([]string{"http", "socks5", "vless", "vmess"}, strings.ToLower(kind)) {
-		return false
-	}
-	cipher, _ := proxy["cipher"].(string)
-	switch strings.ToLower(kind) {
-	case "http", "socks4", "socks5", "vless":
-		return true
-	case "vmess":
-		return strings.EqualFold(cipher, "none") || strings.EqualFold(cipher, "zero")
-	case "ss":
-		if !strings.EqualFold(cipher, "none") && !strings.EqualFold(cipher, "dummy") {
-			return false
-		}
-		plugin, _ := proxy["plugin"].(string)
-		options, _ := proxy["plugin-opts"].(map[string]any)
-		pluginTLS, _ := options["tls"].(bool)
-		switch plugin {
-		case "", "obfs":
-			return true
-		case "v2ray-plugin", "gost-plugin":
-			return !pluginTLS
-		}
-	}
-	return false
+	return containsString([]string{"http", "socks4", "socks5"}, strings.ToLower(kind))
 }

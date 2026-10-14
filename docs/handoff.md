@@ -2,13 +2,13 @@
 
 最后更新：2026-10-14。
 
-## 明文隧道过滤
+## 按来源过滤 HTTP/SOCKS
 
-- 节点总览新增“自动丢弃明文隧道”，默认关闭；修改后自动重聚合，设置可保存／重载。过滤未启用 TLS 的 HTTP/SOCKS5、SOCKS4、无 TLS 的 VLESS、无 TLS 的 VMess none/zero、无加密插件的 SS none/dummy；保留 HTTP/SOCKS5 TLS、VLESS TLS/Reality 和普通加密协议。SS obfs TLS 仅伪装，仍过滤；v2ray/gost 插件真正 TLS 保留，其他插件不推断。
-- policy.drop_plaintext 贯穿预览／生成；config/options.drop_plaintext 保存默认设置。filtered_count 显示去重后的丢弃数量，原订阅缓存不变，关闭可恢复。AI 候选在聚合完成后排除被过滤节点，既有选中项保留缺失提示；生成不回退 AI 出口。全部被过滤时明确拒绝生成。
-- 快照参数固定开关，关闭／开启生成不同地址；refresh 沿用当次开关，规则重建使用已过滤节点。旧配置未设置时仍关闭，不覆盖已有 v1.0 标签与 Release。
-- 验证：Go 全量 test/build/vet、Vite build、Docker build 均通过。测试覆盖 TLS/Reality、VMess cipher、SS 插件、默认设置保存、显式关闭覆盖、缓存不变、过滤计数、快照设置固定、AI 出口过滤及全部过滤拒绝。最终 Docker 镜像通过合成 VLESS/AnyTLS 开关切换、设置保存读取、生成／下载 YAML 和内嵌新页面资源检查；临时容器已清理。仅本地提交，本次未 push 或发布新镜像。
-
+- 用户纠正原过滤范围：仅去除 HTTP/SOCKS，VLESS 等其他协议保留。原实现按加密状态扩大至 VLESS/VMess/SS 已撤回；现在按类型去除 http/socks4/socks5，包含 TLS 变体，页面明确写协议名称，不把保留的公共节点视为可信。
+- 节点总览提供默认策略（默认关闭），每个已读取订阅旁提供“跟随默认／丢弃／保留”。policy.drop_plaintext 历史字段保留，source_drop_plaintext 为稳定来源 ID → bool 覆盖，false 明确保留。设置可保存／重载，修改自动聚合，换订阅顺序保持来源策略；修改后重新生成订阅。
+- 同一节点在多来源去重后仅移除要求丢弃的来源记录；允许来源仍保留，倍率／名称仅依据保留来源。filtered_count 统计实际删除的去重节点数，原缓存不变。AI 选中项被过滤时明确缺失报错，不回退；全部节点过滤时拒绝生成。
+- 默认策略与来源覆盖固定于快照参数，refresh 沿用，规则重建用已过滤节点；旧配置无字段时仍关闭。既有 v1.0 标签与 Release 保留。
+- 验证：Go 全量 test/build/vet、Vite build、Docker build 通过。单元／接口测试覆盖其他协议保留、来源 true/false 优先、重复来源移除与倍率恢复、保存设置、快照固定、生成／聚合一致。最终 Docker 镜像使用两个合成订阅验收默认关闭但公开订阅丢弃／私有订阅保留、订阅重排、重复节点仅保留允许来源、HTTP TLS 节点按类型移除、无 TLS VLESS 保留、保存／重启与订阅 refresh、下载 YAML 和内嵌来源选择控件。临时容器／订阅服务已清理，仅本地提交，未 push 或发布镜像。
 ## 当前范围
 
 用户已提出的功能均已实现：七种协议链接／YAML 订阅导入、自动聚合去重、倍率与重命名、国旗、自建零倍率、17 个 ACL4SSR 方案、AI 固定出口及链式前置选择、电报自建选项、规则每 24 小时更新、完整生成与持久化下载。

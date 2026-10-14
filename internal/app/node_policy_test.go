@@ -35,25 +35,25 @@ func TestCountryFlagsAndBoundaries(t *testing.T) {
 	}
 }
 
-func TestPlaintextFilteringPreservesEncryptedNodes(t *testing.T) {
+func TestHTTPSOCKSFilteringPreservesOtherProtocols(t *testing.T) {
 	fixtures := []struct {
 		proxy map[string]any
 		drop  bool
 	}{
 		{map[string]any{"type": "http"}, true},
-		{map[string]any{"type": "http", "tls": true}, false},
+		{map[string]any{"type": "http", "tls": true}, true},
 		{map[string]any{"type": "socks5", "tls": false}, true},
-		{map[string]any{"type": "socks5", "tls": true}, false},
+		{map[string]any{"type": "socks5", "tls": true}, true},
 		{map[string]any{"type": "socks4"}, true},
-		{map[string]any{"type": "vless"}, true},
+		{map[string]any{"type": "vless"}, false},
 		{map[string]any{"type": "vless", "tls": true, "reality-opts": map[string]any{"public-key": "synthetic"}}, false},
-		{map[string]any{"type": "vmess", "cipher": "none"}, true},
-		{map[string]any{"type": "vmess", "cipher": "zero"}, true},
+		{map[string]any{"type": "vmess", "cipher": "none"}, false},
+		{map[string]any{"type": "vmess", "cipher": "zero"}, false},
 		{map[string]any{"type": "vmess", "cipher": "none", "tls": true}, false},
 		{map[string]any{"type": "vmess", "cipher": "auto"}, false},
 		{map[string]any{"type": "ss", "cipher": "aes-128-gcm"}, false},
-		{map[string]any{"type": "ss", "cipher": "none"}, true},
-		{map[string]any{"type": "ss", "cipher": "none", "plugin": "obfs", "plugin-opts": map[string]any{"mode": "tls"}}, true},
+		{map[string]any{"type": "ss", "cipher": "none"}, false},
+		{map[string]any{"type": "ss", "cipher": "none", "plugin": "obfs", "plugin-opts": map[string]any{"mode": "tls"}}, false},
 		{map[string]any{"type": "ss", "cipher": "none", "plugin": "v2ray-plugin", "plugin-opts": map[string]any{"tls": true}}, false},
 		{map[string]any{"type": "trojan"}, false},
 		{map[string]any{"type": "anytls"}, false},
@@ -63,7 +63,7 @@ func TestPlaintextFilteringPreservesEncryptedNodes(t *testing.T) {
 	input := []AggregatedNode{}
 	expected := 0
 	for index, item := range fixtures {
-		if got := isPlaintextProxy(item.proxy); got != item.drop {
+		if got := isHTTPSOCKSProxy(item.proxy); got != item.drop {
 			t.Fatalf("fixture %d: plaintext = %v, want %v", index, got, item.drop)
 		}
 		id, err := nodeIdentity(item.proxy)
@@ -84,6 +84,28 @@ func TestPlaintextFilteringPreservesEncryptedNodes(t *testing.T) {
 		if err != nil || len(nodes) != want || len(input) != len(fixtures) {
 			t.Fatalf("filter %v: %d nodes, want %d, err %v", enabled, len(nodes), want, err)
 		}
+	}
+}
+
+func TestSourceHTTPSOCKSFilteringKeepsAllowedDuplicateOrigin(t *testing.T) {
+	proxy := map[string]any{"name": "Public 2x", "type": "http", "server": "example.invalid", "port": 8080}
+	duplicate := map[string]any{"name": "Private 0.5x", "type": "http", "server": "example.invalid", "port": 8080}
+	input, _, err := aggregateNodes([]AggregatedNode{
+		{Proxy: proxy, Origins: []NodeOrigin{{SourceID: "public", OriginalName: "Public 2x"}}},
+		{Proxy: duplicate, Origins: []NodeOrigin{{SourceID: "private", OriginalName: "Private 0.5x"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, defaultDrop := range []bool{false, true} {
+		nodes, err := applyNodePolicy(input, NodePolicyOptions{DropPlaintext: defaultDrop, SourceDropPlaintext: map[string]bool{"public": true, "private": false}})
+		if err != nil || len(nodes) != 1 || len(nodes[0].Origins) != 1 || nodes[0].Origins[0].SourceID != "private" || nodes[0].Name != "Private 0.5x" || nodes[0].Rate == nil || *nodes[0].Rate != 0.5 {
+			t.Fatal("source override or surviving origin/rate failed", err)
+		}
+	}
+	nodes, err := applyNodePolicy(input, NodePolicyOptions{SourceDropPlaintext: map[string]bool{"public": true, "private": true}})
+	if err != nil || len(nodes) != 0 || len(input[0].Origins) != 2 {
+		t.Fatal("all origins filtered incorrectly or original input changed", err)
 	}
 }
 

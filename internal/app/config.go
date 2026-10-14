@@ -11,16 +11,17 @@ import (
 )
 
 type Config struct {
-	DropPlaintext    bool             `json:"drop_plaintext"`
-	FetchConcurrency int              `json:"fetch_concurrency"`
-	Sources          []Source         `json:"sources"`
-	SelfHostedNodes  []SelfHostedNode `json:"self_hosted_nodes"`
-	RenameRules      []RenameRule     `json:"rename_rules"`
-	RatePattern      string           `json:"rate_pattern"`
-	Groups           []map[string]any `json:"groups"`
-	Rules            []string         `json:"rules"`
-	AI               AIPolicy         `json:"ai"`
-	Base             map[string]any   `json:"base"`
+	SourceDropPlaintext map[string]bool  `json:"source_drop_plaintext,omitempty"`
+	DropPlaintext       bool             `json:"drop_plaintext"`
+	FetchConcurrency    int              `json:"fetch_concurrency"`
+	Sources             []Source         `json:"sources"`
+	SelfHostedNodes     []SelfHostedNode `json:"self_hosted_nodes"`
+	RenameRules         []RenameRule     `json:"rename_rules"`
+	RatePattern         string           `json:"rate_pattern"`
+	Groups              []map[string]any `json:"groups"`
+	Rules               []string         `json:"rules"`
+	AI                  AIPolicy         `json:"ai"`
+	Base                map[string]any   `json:"base"`
 }
 
 type Source struct {

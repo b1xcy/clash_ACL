@@ -102,7 +102,7 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 		}
 	}
 	input := []AggregatedNode{}
-	policy := NodePolicyOptions{DropPlaintext: config.DropPlaintext, RenameRules: config.RenameRules, RatePattern: config.RatePattern, SourceRates: map[string]SourceRate{}}
+	policy := NodePolicyOptions{SourceDropPlaintext: config.SourceDropPlaintext, DropPlaintext: config.DropPlaintext, RenameRules: config.RenameRules, RatePattern: config.RatePattern, SourceRates: map[string]SourceRate{}}
 	if request.Policy != nil {
 		policy = *request.Policy
 		policy.SourceRates = map[string]SourceRate{}
