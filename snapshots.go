@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,7 @@ type ConfigSnapshot struct {
 	Plan        GenerationPlan    `json:"plan"`
 	YAML        string            `json:"yaml"`
 	Preview     GenerationPreview `json:"preview"`
+	Proxies     []map[string]any  `json:"proxies"`
 	GeneratedAt time.Time         `json:"generated_at"`
 }
 
@@ -34,12 +36,17 @@ type snapshotFlight struct {
 type SnapshotStore struct {
 	dir     string
 	manager *SourceManager
+	rules   *RuleUpdateManager
 	mu      sync.Mutex
 	flights map[string]*snapshotFlight
 }
 
-func newSnapshotStore(dataDir string, manager *SourceManager) *SnapshotStore {
-	return &SnapshotStore{dir: filepath.Join(dataDir, "snapshots"), manager: manager, flights: map[string]*snapshotFlight{}}
+func newSnapshotStore(dataDir string, manager *SourceManager, updates ...*RuleUpdateManager) *SnapshotStore {
+	store := &SnapshotStore{dir: filepath.Join(dataDir, "snapshots"), manager: manager, flights: map[string]*snapshotFlight{}}
+	if len(updates) > 0 {
+		store.rules = updates[0]
+	}
+	return store
 }
 
 func snapshotPlan(config Config, request GenerationRequest) (GenerationPlan, string, error) {
@@ -140,9 +147,18 @@ func (store *SnapshotStore) write(id string, snapshot ConfigSnapshot) error {
 }
 
 func (store *SnapshotStore) get(ctx context.Context, id string, plan GenerationPlan, refresh bool) (ConfigSnapshot, error) {
+	var library fs.FS = bundledRules
+	version := bundledRuleVersion
+	if store.rules != nil {
+		library, version = store.rules.current()
+	}
+	var previous *ConfigSnapshot
 	if !refresh {
 		if snapshot, err := store.read(id); err == nil {
-			return snapshot, nil
+			if snapshot.Preview.RulesVersion == version {
+				return snapshot, nil
+			}
+			previous = &snapshot
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return ConfigSnapshot{}, errors.New("cannot read subscription snapshot")
 		}
@@ -167,12 +183,45 @@ func (store *SnapshotStore) get(ctx context.Context, id string, plan GenerationP
 		close(flight.done)
 		store.mu.Unlock()
 	}()
-	output, preview, err := generateConfig(ctx, store.manager, plan.Config, plan.Request, refresh)
+	var output []byte
+	var preview GenerationPreview
+	var err error
+	if previous != nil {
+		proxies := previous.Proxies
+		var parseErr error
+		if len(proxies) == 0 {
+			proxies, parseErr = parseSubscription([]byte(previous.YAML))
+		}
+		byName := map[string]map[string]any{}
+		for _, proxy := range proxies {
+			name, _ := proxy["name"].(string)
+			byName[name] = proxy
+		}
+		nodes := append([]AggregatedNode(nil), previous.Preview.Nodes...)
+		for index := range nodes {
+			nodes[index].Proxy = byName[nodes[index].Name]
+			if nodes[index].Proxy == nil {
+				parseErr = errors.New("snapshot node parameters are missing")
+			}
+		}
+		if parseErr != nil {
+			err = errors.New("cannot rebuild snapshot with updated rules")
+		} else {
+			output, preview, err = renderConfig(previous.Plan.Config, previous.Plan.Request, nodes, previous.Preview, library)
+		}
+	} else {
+		output, preview, err = generateConfig(ctx, store.manager, plan.Config, plan.Request, refresh, library)
+	}
 	if err != nil {
 		flight.err = err
 		return ConfigSnapshot{}, err
 	}
-	snapshot := ConfigSnapshot{Plan: plan, YAML: string(output), Preview: preview, GeneratedAt: time.Now().UTC()}
+	preview.RulesVersion = version
+	proxies := make([]map[string]any, len(preview.Nodes))
+	for index, node := range preview.Nodes {
+		proxies[index] = node.Proxy
+	}
+	snapshot := ConfigSnapshot{Plan: plan, YAML: string(output), Preview: preview, Proxies: proxies, GeneratedAt: time.Now().UTC()}
 	if err := store.write(id, snapshot); err != nil {
 		flight.err = err
 		return ConfigSnapshot{}, err

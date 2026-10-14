@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"sort"
 	"strings"
@@ -261,7 +262,7 @@ func parseRulePayloadCompatible(data []byte, kind, target string, skip bool) ([]
 	return rules, skipped, nil
 }
 
-func compileRules(request RuleRequest) (RuleResult, error) {
+func compileRules(request RuleRequest, libraries ...fs.FS) (RuleResult, error) {
 	result := RuleResult{Rules: []string{}, Entries: []RuleEntry{}, SkippedRules: []SkippedRule{}, TemplateGroups: []string{}}
 	targets := map[string]bool{"DIRECT": true, "REJECT": true, "REJECT-DROP": true, "PASS": true, "COMPATIBLE": true}
 	for _, target := range request.Targets {
@@ -273,7 +274,7 @@ func compileRules(request RuleRequest) (RuleResult, error) {
 	localBase := ""
 	if request.Preset != "" && request.Preset != "none" {
 		var err error
-		sets, result.TemplateGroups, localBase, err = loadRulePreset(request.Preset)
+		sets, result.TemplateGroups, localBase, err = loadRulePreset(request.Preset, libraries...)
 		if err != nil {
 			return result, err
 		}
@@ -306,7 +307,7 @@ func compileRules(request RuleRequest) (RuleResult, error) {
 			external[index] = []string{set.inline}
 			continue
 		}
-		data, err := readBundledRule(localBase, set.url)
+		data, err := readBundledRule(localBase, set.url, libraries...)
 		if err != nil {
 			return result, err
 		}

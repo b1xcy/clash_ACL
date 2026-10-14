@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -25,9 +26,14 @@ func main() {
 	} else if err != nil {
 		log.Fatal("cannot read configuration: check config.json format and permissions")
 	}
+	autoUpdate, err := strconv.ParseBool(envOr("CLASH_ACL_RULE_AUTO_UPDATE", "true"))
+	if err != nil {
+		log.Fatal("CLASH_ACL_RULE_AUTO_UPDATE must be true or false")
+	}
+	ruleUpdates := newRuleUpdateManager(dataDir, autoUpdate)
 	server := &http.Server{
 		Addr:              envOr("CLASH_ACL_LISTEN_ADDR", "127.0.0.1:8080"),
-		Handler:           newHandler(configPath),
+		Handler:           newHandler(configPath, ruleUpdates),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      5 * time.Minute,
@@ -35,6 +41,7 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	go ruleUpdates.run(ctx)
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

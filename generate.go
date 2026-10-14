@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"sort"
 	"strconv"
@@ -34,6 +35,7 @@ type GenerationPreview struct {
 	DuplicateCount int              `json:"duplicate_count"`
 	RuleCount      int              `json:"rule_count"`
 	SkippedRules   []SkippedRule    `json:"skipped_rules"`
+	RulesVersion   string           `json:"rules_version,omitempty"`
 }
 
 func decodeGenerationRequest(reader io.Reader) (GenerationRequest, error) {
@@ -73,7 +75,7 @@ func generationSources(request GenerationRequest) ([]Source, error) {
 	return requestSources(query)
 }
 
-func generateConfig(ctx context.Context, manager *SourceManager, config Config, request GenerationRequest, refresh bool) ([]byte, GenerationPreview, error) {
+func generateConfig(ctx context.Context, manager *SourceManager, config Config, request GenerationRequest, refresh bool, libraries ...fs.FS) ([]byte, GenerationPreview, error) {
 	preview := GenerationPreview{Sources: []SourceView{}, SkippedRules: []SkippedRule{}}
 	sources, err := generationSources(request)
 	if err != nil {
@@ -156,6 +158,10 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 	if err != nil {
 		return nil, preview, err
 	}
+	return renderConfig(config, request, nodes, preview, libraries...)
+}
+
+func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNode, preview GenerationPreview, libraries ...fs.FS) ([]byte, GenerationPreview, error) {
 	customGroups := config.Groups
 	if request.Groups != nil {
 		customGroups = *request.Groups
@@ -164,7 +170,7 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 	if ruleRequest.Preset == "" {
 		ruleRequest.Preset = "acl4ssr-online"
 	}
-	_, templateNames, _, err := loadRulePreset(ruleRequest.Preset)
+	_, templateNames, _, err := loadRulePreset(ruleRequest.Preset, libraries...)
 	if ruleRequest.Preset == "none" {
 		err = nil
 	}
@@ -212,7 +218,7 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 	} else if len(ai.Domains) != 0 {
 		return nil, preview, errors.New("AI domains require a fixed self-hosted node")
 	}
-	groups, err := buildGroups(ruleRequest.Preset, customGroups, nodes, aiNode)
+	groups, err := buildGroups(ruleRequest.Preset, customGroups, nodes, aiNode, libraries...)
 	if err != nil {
 		return nil, preview, err
 	}
@@ -235,7 +241,7 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 		}
 		aiRules := []string{}
 		for _, file := range []string{"AI.list", "OpenAi.list"} {
-			data, err := bundledRules.ReadFile("rules/ACL4SSR/Clash/Ruleset/" + file)
+			data, err := fs.ReadFile(ruleLibrary(libraries), "rules/ACL4SSR/Clash/Ruleset/"+file)
 			if err != nil {
 				return nil, preview, errors.New("cannot read bundled AI rules")
 			}
@@ -270,7 +276,7 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 			ruleRequest.Fallback = mainGroup
 		}
 	}
-	rules, err := compileRules(ruleRequest)
+	rules, err := compileRules(ruleRequest, libraries...)
 	if err != nil {
 		return nil, preview, err
 	}

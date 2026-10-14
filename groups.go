@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -17,14 +18,14 @@ const (
 	aiGroup       = "🤖 AI 固定出口"
 )
 
-func templateGroups(preset string, nodes []AggregatedNode) ([]map[string]any, error) {
+func templateGroups(preset string, nodes []AggregatedNode, libraries ...fs.FS) ([]map[string]any, error) {
 	if preset == "" || preset == "none" {
 		return nil, nil
 	}
 	var data []byte
 	for _, entry := range rulePresets {
 		if entry.ID == preset {
-			data, _ = bundledRules.ReadFile(entry.file)
+			data, _ = fs.ReadFile(ruleLibrary(libraries), entry.file)
 			break
 		}
 	}
@@ -231,7 +232,7 @@ func validPolicyName(name string) bool {
 	return strings.TrimSpace(name) != "" && !strings.ContainsAny(name, ",\r\n") && !containsString([]string{"DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLOBAL"}, name)
 }
 
-func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode, aiNode string) ([]map[string]any, error) {
+func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode, aiNode string, libraries ...fs.FS) ([]map[string]any, error) {
 	groups := []map[string]any{}
 	rateMembers := map[string][]string{"low": {}, "standard": {}, "high": {}}
 	for _, node := range nodes {
@@ -274,7 +275,7 @@ func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode,
 			groups = append(groups, group)
 		}
 	}
-	templates, err := templateGroups(preset, nodes)
+	templates, err := templateGroups(preset, nodes, libraries...)
 	if err != nil {
 		return nil, err
 	}

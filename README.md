@@ -22,7 +22,7 @@ curl http://127.0.0.1:8080/healthz
 docker logs clash-acl
 ```
 
-Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/config.json`；数据卷保存转换设置与订阅缓存。服务不生成、读取或打印访问令牌。
+Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/config.json`；数据卷保存转换设置、来源缓存、生成快照和已验证的上游规则。服务不生成、读取或打印访问令牌。
 
 本地开发需要 Go 1.25.5 或更新版本，执行 `go run .` 即可；默认监听 `127.0.0.1:8080`，配置保存于 `data/config.json`。
 
@@ -30,6 +30,7 @@ Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/co
 | --- | --- | --- |
 | `CLASH_ACL_LISTEN_ADDR` | HTTP 监听地址 | 本地 `127.0.0.1:8080`；镜像内 `0.0.0.0:8080` |
 | `CLASH_ACL_DATA_DIR` | 配置与缓存目录 | 本地 `data`；镜像内 `/data` |
+| `CLASH_ACL_RULE_AUTO_UPDATE` | 是否每 24 小时检查 ACL4SSR 上游规则；false 仍允许手动检查 | `true` |
 
 ## 已实现 API
 
@@ -53,6 +54,8 @@ Docker 使用非 root 用户运行。首次启动在数据卷中创建 `/data/co
 | `POST /api/uri/preview` | 解析多行协议链接，返回原行号、名称、协议、ID 与脱敏错误，不保存 |
 | `POST /api/aggregate/preview` | 合并请求中的 YAML 缓存与有效直接链接，按连接参数去重并预览 |
 | `GET /api/rules/presets` | 返回内置规则方案名称与 ID |
+| `GET /api/rules/status` | 返回规则版本、来源、更新状态、上次检查及下次检查时间 |
+| `POST /api/rules/update` | 立即后台检查/校验上游规则，返回 HTTP 202，同步任务自动合并 |
 | `POST /api/rules/preview` | 读取本地 INI/规则文件，输出自定义优先的完整规则顺序 |
 | `POST /api/generate/preview` | 生成实际组与完整配置，返回脱敏节点、代理组、规则数及来源状态；不返回节点凭据 |
 | `POST /api/generate` | 接收转换参数并保存完整快照，返回固定下载地址和脱敏预览 |
@@ -80,7 +83,7 @@ POST /api/generate 接收 urls、aggregate、direct_links、policy、ai、groups
 
 成功返回 download_path（/download?id=...）、generated_at、using_cache、refresh_succeeded 和脱敏 preview，不返回节点认证参数。完整 YAML 通过下载地址获取。直接节点、自建节点及转换参数保存于私有数据目录的 snapshots/ 文件，重启后地址仍有效；快照地址固定当时的设置，修改默认设置后须重新生成新地址。
 
-普通下载与 refresh=false 直接返回已有快照；首次没有快照时拉取缺少的来源缓存并生成。refresh=true 等待启用来源刷新与生成，沿用默认并发 2 和同来源请求合并；同一快照的并发生成也合并。失败来源有成功缓存时可继续生成，响应头 X-Clash-ACL-Using-Cache 为 true，X-Clash-ACL-Refresh-Succeeded 为 false。缺少可用来源、AI/分组/规则错误或保存失败会返回错误，保留已有完整快照。
+普通下载与 refresh=false 返回已有快照；规则版本变化时使用快照内保存的完整节点参数重建分组/规则，不额外刷新机场来源，不重复执行重命名。首次没有快照时拉取缺少的来源缓存并生成。refresh=true 等待启用来源刷新与生成，沿用默认并发 2 和同来源请求合并；同一快照的并发生成也合并。失败来源有成功缓存时可继续生成，响应头 X-Clash-ACL-Using-Cache 为 true，X-Clash-ACL-Refresh-Succeeded 为 false。缺少可用来源、AI/分组/规则错误或保存失败会返回错误，保留已有完整快照。
 
 PUT 是整体替换操作，更新前应先读取完整配置。非法 JSON、重复来源 ID、无效来源 URL 和不存在的 AI 节点引用会返回 HTTP 400，并保留原文件。成功写入使用同目录临时文件与重命名；节点扩展字段和 JSON 数字精度在读写中保留。
 
@@ -138,7 +141,7 @@ POST /api/aggregate/preview 增加可选 policy：
 
 ## 本地规则导入与优先级
 
-ACL4SSR 规则直接包含在项目和镜像中，前端支持 [ACL4SSR 官网远程配置](https://acl4ssr-sub.github.io/) 中全部 17 个 ACL4SSR 在线模板，或只使用自定义规则，不需要填写远程地址。17 个模板和 40 个规则文件位于 rules/ACL4SSR，Go embed 随二进制发布，规则读取无需联网。
+ACL4SSR 初始规则包含在项目和镜像中，前端支持 [ACL4SSR 官网远程配置](https://acl4ssr-sub.github.io/) 中全部 17 个 ACL4SSR 在线模板，或只使用自定义规则，不需要填写远程地址。17 个模板和 40 个初始规则文件位于 rules/ACL4SSR，Go embed 随二进制发布，离线可用；后台默认每天检查固定的 ACL4SSR 官方上游。
 
 - 默认系列：默认版、更多去广告、多国分组、无自动测速、无广告拦截。
 - 精简系列：精简版、更多去广告、无自动测速、故障转移、多模式、多国分组。
@@ -163,7 +166,15 @@ Mihomo 不支持的外部 URL-REGEX/USER-AGENT 可以通过兼容选项跳过，
 
 规则输入不随「保存转换设置」保存为全局默认，但会随本次生成地址持久化。实际生成中自动 AI 域名规则位于其他自定义规则之前，再导入模板规则，最后保留唯一兜底。
 
-更新内置规则需编辑或重新导入仓库文件并构建镜像。来源快照和模板修改记录见 rules/ACL4SSR/SOURCE.md；并非运行时在线更新。[ACL4SSR 原模板](https://github.com/ACL4SSR/ACL4SSR/blob/master/Clash/config/ACL4SSR_Online.ini)。
+## ACL4SSR 定时更新
+
+默认每 24 小时检查 ACL4SSR/ACL4SSR 的 master 分支；首次启动后台检查，重启后根据持久化的上次检查时间继续计时。基础模式提供「立即检查上游」及当前版本、检查时间和错误反馈。将 CLASH_ACL_RULE_AUTO_UPDATE=false 可停用定时检查，仍可手动更新。
+
+上游 [Update GFWList Rules 工作流](https://github.com/ACL4SSR/ACL4SSR/blob/master/.github/workflows/update.yml) 每天 00:00 UTC 从 GFWList 生成规则和 MRS。本服务下载 GitHub 的同一份仓库归档，只导入 17 个模板及实际引用规则，将上游地址改为本地引用；不执行其 Python/Actions 脚本，也不导入 MRS。可用时发送 ETag 条件请求，没有变化就保留当前版本。
+
+切换前校验完整模板、引用、规则兼容性、目标与实际生成分组；全部通过后，规则包及状态原子写入数据卷的 rule-updates/。每个生成请求固定一份规则库，避免更新过程中混用版本。失败保留上一份有效库；重启时规则包损坏或缺失则回到内置库并报告错误。版本显示为归一化规则包的 SHA-256 指纹，初始内置库显示固定提交号。
+
+已有地址保持不变。下载时发现规则版本更新，会使用快照内的节点及原转换参数重建规则；生成失败返回错误并保留旧快照。自定义规则优先及 AI 固定出口约束仍有效。已验证的规则存放在数据卷，不改动 Git 工作区文件，也无需重新构建镜像。内置初始快照记录见 rules/ACL4SSR/SOURCE.md。
 
 
 ## 要解决的问题

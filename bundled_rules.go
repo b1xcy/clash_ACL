@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"errors"
+	"io/fs"
 	"path"
 	"strings"
 )
@@ -36,12 +37,19 @@ var rulePresets = []RulePreset{
 	{ID: "acl4ssr-full-google", Name: "ACL4SSR_Online_Full_Google 全分组 重度用户使用 谷歌细分", file: "rules/ACL4SSR/Clash/config/ACL4SSR_Online_Full_Google.ini"},
 }
 
-func loadRulePreset(id string) ([]externalRuleSet, []string, string, error) {
+func ruleLibrary(libraries []fs.FS) fs.FS {
+	if len(libraries) > 0 && libraries[0] != nil {
+		return libraries[0]
+	}
+	return bundledRules
+}
+
+func loadRulePreset(id string, libraries ...fs.FS) ([]externalRuleSet, []string, string, error) {
 	for _, preset := range rulePresets {
 		if preset.ID != id {
 			continue
 		}
-		data, err := bundledRules.ReadFile(preset.file)
+		data, err := fs.ReadFile(ruleLibrary(libraries), preset.file)
 		if err != nil {
 			return nil, nil, "", errors.New("cannot read bundled rule template")
 		}
@@ -64,12 +72,12 @@ func loadRulePreset(id string) ([]externalRuleSet, []string, string, error) {
 	return nil, nil, "", errors.New("unknown bundled rule preset")
 }
 
-func readBundledRule(base, reference string) ([]byte, error) {
+func readBundledRule(base, reference string, libraries ...fs.FS) ([]byte, error) {
 	file := path.Clean(path.Join(base, reference))
 	if !strings.HasPrefix(file, "rules/ACL4SSR/Clash/") {
 		return nil, errors.New("bundled rule path must stay inside the preset")
 	}
-	data, err := bundledRules.ReadFile(file)
+	data, err := fs.ReadFile(ruleLibrary(libraries), file)
 	if err != nil {
 		return nil, errors.New("bundled rule file not found")
 	}

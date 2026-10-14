@@ -19,6 +19,7 @@
 <div class="row"><div class="label">节点聚合</div><div><button class="secondary" id="previewAggregate">预览聚合、倍率与重命名</button><div class="hint" id="aggregateSummary">使用本次订阅与已确认的直接节点，不保存服务器来源配置。</div><div id="aggregateResults"></div></div></div>
 <div class="row"><label for="target">客户端</label><div><select class="field field-small" id="target"><option value="mihomo">Mihomo / Clash.Meta</option></select></div></div>
 <div class="row"><label for="rulePreset">内置规则方案</label><div><select class="field" id="rulePreset" disabled><option>正在读取本地方案…</option></select><div class="hint" id="presetDescription">ACL4SSR 本地规则随镜像发布，无需填写远程地址。</div></div></div>
+<div class="row"><div class="label">规则更新</div><div><button class="secondary" id="updateRules" disabled>立即检查上游</button><div class="hint" id="ruleUpdateStatus" role="status">正在读取规则版本…</div></div></div>
 <div id="advancedOptions" hidden>
 <div class="divider"></div>
 <div class="row"><div class="label">倍率分组</div><div><div class="rate-info"><span>低倍率 &lt; 1x</span><span>标准倍率 = 1x / 未识别</span><span>高倍率 &gt; 1x</span></div></div></div>
@@ -279,7 +280,22 @@ byId('copyUrl').addEventListener('click',async()=>{
 });
 byId('downloadConfig').addEventListener('click',()=>{if(generatedPath)location.href=byId('convertedUrl').value;});
 byId('importClient').addEventListener('click',()=>{if(generatedPath)location.href='clash://install-config?url='+encodeURIComponent(byId('convertedUrl').value);});
-Promise.all([loadConversionOptions(),loadRulePresets()]).then(()=>{byId('generate').disabled=false;byId('previewGeneration').disabled=false;}).catch(error=>message(error.message,'error'));
+let ruleStatusTimer;
+let currentRuleVersion='';
+function renderRuleUpdateStatus(status) {
+  if(currentRuleVersion && currentRuleVersion!==status.version)invalidateSubscription();currentRuleVersion=status.version;
+  byId('ruleUpdateStatus').textContent=(status.origin==='upstream'?'上游规则 ':'内置快照 ')+status.version.slice(0,12)+' · '+(status.enabled?'每 '+status.interval_hours+' 小时自动检查':'自动更新已关闭')+(status.last_checked?' · 上次检查 '+new Date(status.last_checked).toLocaleString():' · 尚未检查')+(status.next_check?' · 下次 '+new Date(status.next_check).toLocaleString():'')+(status.error?' · 更新失败，保留当前有效规则：'+status.error:'');
+  byId('updateRules').disabled=status.state==='updating';byId('updateRules').textContent=status.state==='updating'?'正在检查和校验…':'立即检查上游';
+  clearTimeout(ruleStatusTimer);ruleStatusTimer=setTimeout(loadRuleUpdateStatus,status.state==='updating'?2000:60000);
+}
+async function loadRuleUpdateStatus() {
+  try{renderRuleUpdateStatus(await api('/api/rules/status'));}catch(error){byId('ruleUpdateStatus').textContent=error.message;byId('updateRules').disabled=false;}
+}
+byId('updateRules').addEventListener('click',async()=>{
+  byId('updateRules').disabled=true;
+  try{renderRuleUpdateStatus(await api('/api/rules/update',{method:'POST'}));}catch(error){byId('ruleUpdateStatus').textContent=error.message;byId('updateRules').disabled=false;}
+});
+Promise.all([loadConversionOptions(),loadRulePresets(),loadRuleUpdateStatus()]).then(()=>{byId('generate').disabled=false;byId('previewGeneration').disabled=false;}).catch(error=>message(error.message,'error'));
 
 </script>
 </body>

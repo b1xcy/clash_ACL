@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,11 +16,17 @@ import (
 	"time"
 )
 
-func newHandler(configPath string) http.Handler {
+func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 	mux := http.NewServeMux()
 	var configMu sync.RWMutex
 	sourceManager := newSourceManager(filepath.Dir(configPath))
-	snapshotStore := newSnapshotStore(filepath.Dir(configPath), sourceManager)
+	var ruleUpdates *RuleUpdateManager
+	if len(updates) > 0 {
+		ruleUpdates = updates[0]
+	} else {
+		ruleUpdates = newRuleUpdateManager(filepath.Dir(configPath), true)
+	}
+	snapshotStore := newSnapshotStore(filepath.Dir(configPath), sourceManager, ruleUpdates)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache")
@@ -360,6 +367,13 @@ func newHandler(configPath string) http.Handler {
 	mux.HandleFunc("GET /api/rules/presets", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"presets": rulePresets})
 	})
+	mux.HandleFunc("GET /api/rules/status", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, ruleUpdates.view())
+	})
+	mux.HandleFunc("POST /api/rules/update", func(w http.ResponseWriter, r *http.Request) {
+		ruleUpdates.startUpdate(context.Background())
+		writeJSON(w, http.StatusAccepted, ruleUpdates.view())
+	})
 	mux.HandleFunc("POST /api/generate/preview", func(w http.ResponseWriter, r *http.Request) {
 		reader := http.MaxBytesReader(w, r.Body, maxSubscriptionSize)
 		defer reader.Close()
@@ -375,11 +389,13 @@ func newHandler(configPath string) http.Handler {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read configuration"})
 			return
 		}
-		_, preview, err := generateConfig(r.Context(), sourceManager, config, request, false)
+		library, version := ruleUpdates.current()
+		_, preview, err := generateConfig(r.Context(), sourceManager, config, request, false, library)
 		if err != nil {
 			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 			return
 		}
+		preview.RulesVersion = version
 		writeJSON(w, http.StatusOK, preview)
 	})
 	mux.HandleFunc("POST /api/rules/preview", func(w http.ResponseWriter, r *http.Request) {
@@ -397,7 +413,8 @@ func newHandler(configPath string) http.Handler {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "expected one rules request object"})
 			return
 		}
-		result, err := compileRules(*request)
+		library, _ := ruleUpdates.current()
+		result, err := compileRules(*request, library)
 		if err != nil {
 			if unmapped, ok := err.(unmappedPolicies); ok {
 				writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error(), "unmapped_targets": unmapped.targets})
@@ -490,6 +507,7 @@ func newHandler(configPath string) http.Handler {
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="clash-acl.yaml"`)
 		w.Header().Set("X-Clash-ACL-Snapshot", id)
+		w.Header().Set("X-Clash-ACL-Rules-Version", snapshot.Preview.RulesVersion)
 		w.Header().Set("X-Clash-ACL-Generated-At", snapshot.GeneratedAt.Format(time.RFC3339))
 		w.Header().Set("X-Clash-ACL-Using-Cache", strconv.FormatBool(snapshotUsingCache(snapshot)))
 		w.Header().Set("X-Clash-ACL-Refresh-Succeeded", strconv.FormatBool(refresh && !snapshotUsingCache(snapshot)))
