@@ -123,8 +123,8 @@ func TestImportedAnyTLSAIExitAndChainKeepRulesAndIdentity(t *testing.T) {
 				}
 				if group["name"] == aiChainGroup {
 					entry = true
-					if group["type"] != "select" || !reflect.DeepEqual(members, []string{aiAutoGroup, "Entry 0.5x"}) {
-						t.Fatal("entry group includes exit or DIRECT")
+					if group["type"] != "select" || !reflect.DeepEqual(members, []string{aiAutoGroup, "Entry 0.5x", "DIRECT"}) {
+						t.Fatal("entry group has incorrect candidates")
 					}
 				}
 			}

@@ -1,6 +1,12 @@
 # 开发交接
 
-最后更新：2026-10-14。
+最后更新：2026-10-15。
+
+## AI 前置直连选项
+
+- `🔗 AI 前置选择` 末尾增加 `DIRECT`，选择后直接连接所选 AI 出口；默认仍为 `⚡ AI 前置自动`。DIRECT 不参与自动测速，最终 AI 出口组仍仅含指定节点。
+- 快照生成版本更新为 ai-self-v3，旧订阅下载使用已保存节点重建并获得直连选项，无需刷新来源。
+- 已更新现有多出口、AnyTLS 链式及全部模板自建出口测试预期。Go 全量 test/build/vet、Vite build、`docker build -t clash-acl:local .`、git diff --check 通过；本次环境未配置 Mihomo 内核，未运行内核配置校验。不做真实连通性检测。仅本地提交，不 push 或发布。
 
 ## 按来源过滤 HTTP/SOCKS
 

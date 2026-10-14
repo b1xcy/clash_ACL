@@ -280,7 +280,7 @@ func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode,
 				return nil, errors.New("AI chain requires another imported or saved proxy node as its entry")
 			}
 			groups = append(groups, map[string]any{"name": aiAutoGroup, "type": "url-test", "proxies": members, "url": testURL, "interval": 300, "tolerance": 50})
-			groups = append(groups, map[string]any{"name": aiChainGroup, "type": "select", "proxies": append([]string{aiAutoGroup}, members...)})
+			groups = append(groups, map[string]any{"name": aiChainGroup, "type": "select", "proxies": append(append([]string{aiAutoGroup}, members...), "DIRECT")})
 		}
 		groups = append(groups, map[string]any{"name": aiGroup, "type": "select", "proxies": aiNodes})
 	}
