@@ -59,3 +59,6 @@
 ## v1.1 发布
 
 - 用户已明确授权创建 v1.1 并 push 发布；版本包含 HTTP/SOCKS 按来源过滤与范围修正。Release workflow 说明已增加来源过滤功能，沿用完整源码、Linux amd64 可执行包、SHA256SUMS 和 GHCR 版本镜像发布流程。
+- 已原子推送 main 和 v1.1，标签指向 b7063ff1b8fc32fb63b0f1223288a78934cc467e。[Release 1.1](https://github.com/b1xcy/clash_ACL/releases/tag/v1.1) 正式发布（非 draft/prerelease），[Release Actions](https://github.com/b1xcy/clash_ACL/actions/runs/38549863455) 与 main 镜像 Actions 38549863008 均成功。
+- GHCR v1.1、1.1 镜像摘要 sha256:063d0dbc2238c9954cfbc93213540478f8bb430edf6ecf1d035a27750161b299；匿名获取两个版本标签和发布时 latest 均 HTTP 200。仓库当前公开，包也已允许匿名拉取。
+- 三个附件已实际下载；Linux amd64 包与源码 ZIP 的 SHA256SUMS 均核验通过，源码 ZIP 包含标签下完整 116 个跟踪文件。v1.0 标签／Release 保留，用户数据及 VPS 未修改。
