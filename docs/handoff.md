@@ -2,6 +2,12 @@
 
 最后更新：2026-10-15。
 
+## v1.2.2 发布
+
+- 用户授权打标签并推送；本版包含 DNS 防泄露配置与旧快照重建。前端顶部硬编码显示 v1.2.2，不新增 API，Release 说明同步更新。
+- 验证：Vite build、Go 全量 test/build/vet、docker build -t clash-acl:local .、git diff --check 通过；构建后的前端 JS 已确认包含 v1.2.2。实际 DNS 泄露及 Mihomo 校验边界沿用下节记录。
+- 计划将 main 与 v1.2.2 原子推送，远程发布结果另行核实。
+
 ## 订阅 DNS 防泄露
 
 - 已阅读用户 data.txt 中的 Shadowrocket 讨论（topic/2785002，12 条帖子），并按要求删除该未跟踪文件。可借鉴的是代理与直连 DNS 分离，现有 nameserver／direct-nameserver 已实现；不添加 Shadowrocket 专用 dns-direct-system 字段，不改回系统 DNS。帖中仍有失败反馈，不能据此宣称通过实际泄露检测；出现国内解析器需要结合所查询域名及路由判断，不能一概视为泄露。本次仅补充评估记录，没有修改代码，无需重复代码构建检查。
