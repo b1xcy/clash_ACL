@@ -4,6 +4,7 @@
 
 ## 订阅 DNS 防泄露
 
+- 已阅读用户 data.txt 中的 Shadowrocket 讨论（topic/2785002，12 条帖子），并按要求删除该未跟踪文件。可借鉴的是代理与直连 DNS 分离，现有 nameserver／direct-nameserver 已实现；不添加 Shadowrocket 专用 dns-direct-system 字段，不改回系统 DNS。帖中仍有失败反馈，不能据此宣称通过实际泄露检测；出现国内解析器需要结合所查询域名及路由判断，不能一概视为泄露。本次仅补充评估记录，没有修改代码，无需重复代码构建检查。
 - 生成阶段统一替换基础 DNS：启用 fake-ip，Cloudflare／Google DoH 显式绑定主代理；选择 AI 固定出口时默认查询统一绑定 AI 组，不因 DNS 故障退回系统解析。节点域名与 DIRECT 目标使用独立阿里 DoH，避免解析代理自身的循环。此策略也意味着 AI 出口故障会影响默认 DNS 可用性。
 - 补齐 TUN TCP／UDP 53 劫持、auto-route、strict-route、auto-detect-interface，保留原开关和其他设置，不自动开启 TUN。客户端需开启 TUN、关闭冲突 DNS 覆写；系统代理、浏览器独立 DoH、WebRTC 等绕行仍需客户端处理，不能声称彻底消除所有泄露。
 - 快照生成版本改为 dns-v1，旧下载地址用保存节点重建，无需刷新来源。README 已说明行为与验证边界。
