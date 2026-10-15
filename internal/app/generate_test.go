@@ -202,6 +202,48 @@ func TestGenerationNameCollisionAndExactYAMLNumbers(t *testing.T) {
 	}
 }
 
+func TestGenerationDNSProtection(t *testing.T) {
+	for _, fixedAI := range []bool{false, true} {
+		config := generationFixture()
+		config.Base = map[string]any{
+			"dns": map[string]any{"enable": false, "fallback": []string{"system"}},
+			"tun": map[string]any{"enable": true, "stack": "mixed", "dns-hijack": []string{}},
+		}
+		target := mainGroup
+		if fixedAI {
+			config.AI = AIPolicy{NodeID: "unknown", Chain: true}
+			target = aiGroup
+		}
+		output, _, err := generateConfig(context.Background(), newSourceManager(t.TempDir()), config, GenerationRequest{Rules: RuleRequest{Preset: "none"}}, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var document map[string]any
+		if err := yaml.Unmarshal(output, &document); err != nil {
+			t.Fatal(err)
+		}
+		dns := document["dns"].(map[string]any)
+		if dns["enable"] != true || dns["enhanced-mode"] != "fake-ip" || dns["fallback"] != nil || dns["nameserver-policy"] != nil {
+			t.Fatal("unsafe base DNS survived generation", dns)
+		}
+		for _, resolver := range dns["nameserver"].([]any) {
+			if !strings.HasPrefix(resolver.(string), "https://") || !strings.HasSuffix(resolver.(string), "#"+target) {
+				t.Fatal("destination DNS is not pinned to the selected proxy", resolver)
+			}
+		}
+		if dns["proxy-server-nameserver"] == nil || dns["direct-nameserver"] == nil {
+			t.Fatal("independent node and direct resolvers missing")
+		}
+		tun := document["tun"].(map[string]any)
+		if tun["enable"] != true || tun["stack"] != "mixed" || tun["strict-route"] != true || !reflect.DeepEqual(tun["dns-hijack"], []any{"any:53", "tcp://any:53"}) {
+			t.Fatal("TUN DNS capture or user settings lost", tun)
+		}
+		if config.Base["dns"].(map[string]any)["enable"] != false || len(config.Base["tun"].(map[string]any)["dns-hijack"].([]string)) != 0 {
+			t.Fatal("base configuration mutated")
+		}
+	}
+}
+
 func TestGenerationPreviewPrivacyAndRequestValidation(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	if err := writeConfig(path, generationFixture()); err != nil {

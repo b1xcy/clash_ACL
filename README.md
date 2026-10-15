@@ -51,6 +51,10 @@ AI 链路为前置节点 → 所选出口 → AI。前置选择默认使用 `⚡
 
 AI 补充参考 [Net.Coffee GPT](https://ip.net.coffee/gpt/site.html) 与 [Claude](https://ip.net.coffee/claude/site.html)，补域名、CDN、认证、语音、遥测及 Claude IP/ASN，随镜像发布；ACL 上游更新不会覆盖。可选 geosite/NTP 未默认启用。none 方案保留已启用的 AI／电报服务分流。
 
+订阅生成统一覆写 DNS 为 fake-ip：默认通过主代理查询 Cloudflare／Google DoH，绑定 AI 出口时统一通过 AI 出口查询；直连目标与代理节点域名单独使用阿里 DoH，避免节点解析循环。不使用系统 DNS 或国内外并发 fallback；基础配置中的 DNS 会被替换。旧订阅地址下次下载自动重建，无需刷新来源。
+
+生成配置包含 TUN 的 TCP／UDP 53 劫持、自动路由和严格路由参数，保留基础配置的 TUN 开关与其他设置；客户端需启用 TUN 并关闭冲突的 DNS 覆写。仅系统代理无法接管所有程序的 DNS，浏览器自带 DoH、WebRTC 或其他绕过客户端的流量也无法仅靠订阅保证。导入后可用 browserleaks.com/dns 实测，直连目标的国内 DNS 属于预期分流；静态配置校验不代表实际出口已验证。
+
 ## 项目结构
 
 ```text

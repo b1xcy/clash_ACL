@@ -366,6 +366,33 @@ func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNo
 		proxies[index] = node.Proxy
 	}
 	document["mode"], document["proxies"], document["proxy-groups"], document["rules"] = "rule", proxies, groups, rules.Rules
+	dnsTarget := mainGroup
+	if len(aiNodes) > 0 {
+		dnsTarget = aiGroup
+	}
+	document["dns"] = map[string]any{
+		"enable":                          true,
+		"listen":                          "127.0.0.1:1053",
+		"ipv6":                            false,
+		"enhanced-mode":                   "fake-ip",
+		"fake-ip-range":                   "198.18.0.1/16",
+		"fake-ip-filter-mode":             "blacklist",
+		"fake-ip-filter":                  []string{"*.lan", "*.local", "+.arpa"},
+		"default-nameserver":              []string{"https://223.5.5.5/dns-query"},
+		"proxy-server-nameserver":         []string{"https://223.5.5.5/dns-query"},
+		"direct-nameserver":               []string{"https://223.5.5.5/dns-query"},
+		"direct-nameserver-follow-policy": false,
+		"nameserver":                      []string{"https://1.1.1.1/dns-query#" + dnsTarget, "https://8.8.8.8/dns-query#" + dnsTarget},
+	}
+	tun := map[string]any{}
+	if baseTun, ok := document["tun"].(map[string]any); ok {
+		for key, value := range baseTun {
+			tun[key] = value
+		}
+	}
+	tun["dns-hijack"] = []string{"any:53", "tcp://any:53"}
+	tun["auto-route"], tun["strict-route"], tun["auto-detect-interface"] = true, true, true
+	document["tun"] = tun
 	output, err := marshalMihomo(document)
 	if err != nil {
 		return nil, preview, err

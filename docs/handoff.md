@@ -2,6 +2,13 @@
 
 最后更新：2026-10-15。
 
+## 订阅 DNS 防泄露
+
+- 生成阶段统一替换基础 DNS：启用 fake-ip，Cloudflare／Google DoH 显式绑定主代理；选择 AI 固定出口时默认查询统一绑定 AI 组，不因 DNS 故障退回系统解析。节点域名与 DIRECT 目标使用独立阿里 DoH，避免解析代理自身的循环。此策略也意味着 AI 出口故障会影响默认 DNS 可用性。
+- 补齐 TUN TCP／UDP 53 劫持、auto-route、strict-route、auto-detect-interface，保留原开关和其他设置，不自动开启 TUN。客户端需开启 TUN、关闭冲突 DNS 覆写；系统代理、浏览器独立 DoH、WebRTC 等绕行仍需客户端处理，不能声称彻底消除所有泄露。
+- 快照生成版本改为 dns-v1，旧下载地址用保存节点重建，无需刷新来源。README 已说明行为与验证边界。
+- 验证：go test ./...、go build ./...、go vet ./...、docker build -t clash-acl:local . 通过。回归覆盖基础 DNS 覆写、普通／AI 默认 DNS 绑定、独立解析、TUN 参数保留及输入不变。Mihomo 官方 v1.19.32 Windows 内核下载无响应，已中止，未完成内核校验；未执行真实节点连通性或泄露网站验收。下一步在实际客户端版本开启 TUN 后检测 DNS 出口。仅本地提交，不 push／发布。
+
 ## v1.2.1 前置选项排序
 
 - 按用户要求将 `🔗 AI 前置选择` 顺序调整为 `⚡ AI 前置自动`、`DIRECT`、其余节点，方便切换直连；自动组候选保持原样。
