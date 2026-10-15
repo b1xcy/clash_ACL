@@ -6,7 +6,7 @@
 
 - 用户授权打标签并推送；本版包含 DNS 防泄露配置与旧快照重建。前端顶部硬编码显示 v1.2.2，不新增 API，Release 说明同步更新。
 - 验证：Vite build、Go 全量 test/build/vet、docker build -t clash-acl:local .、git diff --check 通过；构建后的前端 JS 已确认包含 v1.2.2。实际 DNS 泄露及 Mihomo 校验边界沿用下节记录。
-- 计划将 main 与 v1.2.2 原子推送，远程发布结果另行核实。
+- 已将 main 与 v1.2.2 原子推送，标签指向 9cf3865adbc8f715b097924ffbbc88ef4e50e0d3。[Release](https://github.com/b1xcy/clash_ACL/releases/tag/v1.2.2) 正式发布，Release Actions 38751377742 与 main 镜像 Actions 38751378402 均成功；三个附件已通过 API 确认存在（Linux amd64 包、完整源码 ZIP、SHA256SUMS），本次未下载附件复验。GHCR v1.2.2 manifest 可读取，摘要 sha256:3ab73a2fc3684b3b58308995c340d23aea779ef13db9fa8eac8ffd22a038996d。后续仅提交发布验收记录，不移动标签。
 
 ## 订阅 DNS 防泄露
 
