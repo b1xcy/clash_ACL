@@ -2,6 +2,12 @@
 
 最后更新：2026-10-16。
 
+## v1.2.3 发布
+
+- 用户授权补丁版本打标签并推送；v1.2.3 包含字节国内域名补全及旧快照重建，前端硬编码版本同步为 v1.2.3，Release 说明已更新。
+- 发布前验证：Vite build、Go 全量 test/build/vet、docker build -t clash-acl:local .、git diff --check 通过；前端构建产物已确认包含 v1.2.3。规则和内核校验结果见下节。
+- 将 main 与 v1.2.3 原子推送，远程产物随后核实，不移动既有标签。
+
 ## 字节国内域名补全
 
 - 用户反馈抖音资源 lf-normal-gr-sourcecdn.bytegecko.com 落入代理兜底。新增 rules/Domestic/ByteDance.list 共 806 条域名规则；来源 V2Fly domain-list-community 固定提交 dd4e3c080cee602512768e8109f89fafaa94b8ca 的 bytedance、douyin、doubao、fqnovel、juejin、feishu、volcengine、dongchedi，保留 MIT LICENSE。普通域名转 DOMAIN-SUFFIX、full: 转 DOMAIN，排除 include 行、@!cn、@ads；未展开 TikTok／海外 AI／Lark／Trae 等海外或混合 include。
