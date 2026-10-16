@@ -46,6 +46,58 @@ func TestBundledPresetsLoadOfflineAndKeepCustomPriority(t *testing.T) {
 	}
 }
 
+func TestByteDanceDomesticSupplementAcrossPresets(t *testing.T) {
+	for _, preset := range rulePresets {
+		t.Run(preset.ID, func(t *testing.T) {
+			result, err := compileRules(RuleRequest{Preset: preset.ID, Targets: []string{"Fixed"}, CustomRules: []string{"DOMAIN,forced.bytegecko.com,Fixed"}, SkipUnsupported: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Rules[0] != "DOMAIN,forced.bytegecko.com,Fixed" {
+				t.Fatal("custom rule priority lost")
+			}
+			for _, host := range []string{"lf-normal-gr-sourcecdn.bytegecko.com", "lf-source.bytegeckoext.com", "perfops.byte-test.com", "www.douyin.com", "v.idouyinvod.com", "www.fqnovel.com", "www.feishu.cn", "api.volcengine.com"} {
+				target := ""
+				for _, rule := range result.Rules {
+					parts := strings.Split(rule, ",")
+					if len(parts) < 3 {
+						continue
+					}
+					if (parts[0] == "DOMAIN" && host == parts[1]) || (parts[0] == "DOMAIN-SUFFIX" && (host == parts[1] || strings.HasSuffix(host, "."+parts[1]))) || (parts[0] == "DOMAIN-KEYWORD" && strings.Contains(host, parts[1])) {
+						target = parts[2]
+						break
+					}
+				}
+				if target != "🎯 全球直连" {
+					t.Fatalf("%s matched %q instead of domestic routing", host, target)
+				}
+			}
+			firstSupplement, geoIP, ad := -1, -1, -1
+			for index, entry := range result.Entries {
+				if entry.Origin == "domestic-supplement" {
+					if firstSupplement < 0 {
+						firstSupplement = index
+					}
+					for _, overseas := range []string{"tiktok.com", "tiktokcdn.com", "ibytedtos.com", "byteoversea.com", "capcut.com", "larksuite.com", "coze.com", "trae.ai", "byteperf.com"} {
+						if strings.Split(entry.Rule, ",")[1] == overseas {
+							t.Fatalf("overseas service added to domestic supplement: %s", overseas)
+						}
+					}
+				}
+				if strings.HasPrefix(entry.Rule, "GEOIP,CN,") {
+					geoIP = index
+				}
+				if strings.HasPrefix(entry.Rule, "DOMAIN-SUFFIX,ad.toutiao.com,") {
+					ad = index
+				}
+			}
+			if firstSupplement < 0 || geoIP < firstSupplement || (ad >= 0 && ad > firstSupplement) {
+				t.Fatal("supplement must follow existing ad rules and precede China IP routing")
+			}
+		})
+	}
+}
+
 func TestCustomRulesOrderAndFallback(t *testing.T) {
 	result, err := compileRules(RuleRequest{Preset: "none", CustomRules: []string{"DOMAIN,a,Fixed", "MATCH,REJECT", "DOMAIN,b,DIRECT", "DOMAIN,a,Fixed"}, Targets: []string{"Fixed"}})
 	if err != nil || !reflect.DeepEqual(result.Rules, []string{"DOMAIN,a,Fixed", "DOMAIN,b,DIRECT", "MATCH,REJECT"}) || result.DuplicateCount != 1 || result.Entries[0].Origin != "custom" || result.Entries[2].Origin != "fallback" {

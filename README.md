@@ -53,6 +53,8 @@ AI 补充参考 [Net.Coffee GPT](https://ip.net.coffee/gpt/site.html) 与 [Claud
 
 订阅生成统一覆写 DNS 为 fake-ip：默认通过主代理查询 Cloudflare／Google DoH，绑定 AI 出口时统一通过 AI 出口查询；直连目标与代理节点域名单独使用阿里 DoH，避免节点解析循环。不使用系统 DNS 或国内外并发 fallback；基础配置中的 DNS 会被替换。旧订阅地址下次下载自动重建，无需刷新来源。
 
+17 个 ACL4SSR 方案另附 806 条字节国内域名规则，覆盖抖音／火山／汽水、头条／西瓜、番茄、飞书、掘金、懂车帝及火山引擎等，包括 `bytegecko.com`／`bytegeckoext.com` 和 `byte-test.com`。补充规则跟随方案的国内直连策略，位于原广告拦截规则之后、国内 IP 判断之前，保留自定义规则和 AI 固定出口优先级；none 方案不注入。来源为 [V2Fly domain-list-community 固定快照](https://github.com/v2fly/domain-list-community/tree/dd4e3c080cee602512768e8109f89fafaa94b8ca/data)，排除海外服务 include、`@!cn` 与广告标记，未将 TikTok、CapCut 国际版、Lark 国际版及 BytePlus 测试域名 `byteperf.com` 并入直连。补充随程序发布，不会被 ACL4SSR 更新覆盖；更新程序后旧订阅下载自动应用，不修改客户端现用配置。
+
 生成配置包含 TUN 的 TCP／UDP 53 劫持、自动路由和严格路由参数，保留基础配置的 TUN 开关与其他设置；客户端需启用 TUN 并关闭冲突的 DNS 覆写。仅系统代理无法接管所有程序的 DNS，浏览器自带 DoH、WebRTC 或其他绕过客户端的流量也无法仅靠订阅保证。导入后可用 browserleaks.com/dns 实测，直连目标的国内 DNS 属于预期分流；静态配置校验不代表实际出口已验证。
 
 ## 项目结构

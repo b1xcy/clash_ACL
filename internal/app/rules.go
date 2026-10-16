@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"net"
+	"path"
 	"sort"
 	"strings"
 
@@ -369,6 +370,19 @@ func compileRules(request RuleRequest, libraries ...fs.FS) (RuleResult, error) {
 	for index, values := range external {
 		if err := appendRules(values, sets[index].target, "external"); err != nil {
 			return result, err
+		}
+		if path.Base(sets[index].url) == "ChinaDomain.list" {
+			data, err := bundledRules.ReadFile("rules/Domestic/ByteDance.list")
+			if err != nil {
+				return result, err
+			}
+			supplement, err := parseRulePayload(data, "classical", sets[index].target)
+			if err != nil {
+				return result, err
+			}
+			if err := appendRules(supplement, sets[index].target, "domestic-supplement"); err != nil {
+				return result, err
+			}
 		}
 	}
 	if fallback == "" {

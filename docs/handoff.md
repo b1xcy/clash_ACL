@@ -1,6 +1,13 @@
 # 开发交接
 
-最后更新：2026-10-15。
+最后更新：2026-10-16。
+
+## 字节国内域名补全
+
+- 用户反馈抖音资源 lf-normal-gr-sourcecdn.bytegecko.com 落入代理兜底。新增 rules/Domestic/ByteDance.list 共 806 条域名规则；来源 V2Fly domain-list-community 固定提交 dd4e3c080cee602512768e8109f89fafaa94b8ca 的 bytedance、douyin、doubao、fqnovel、juejin、feishu、volcengine、dongchedi，保留 MIT LICENSE。普通域名转 DOMAIN-SUFFIX、full: 转 DOMAIN，排除 include 行、@!cn、@ads；未展开 TikTok／海外 AI／Lark／Trae 等海外或混合 include。
+- 补齐 bytegecko／bytegeckoext、字节 CDN／静态／视频资源、抖音／火山／汽水、头条／西瓜、番茄、飞书、掘金、懂车帝和火山引擎等。跟随每个方案 ChinaDomain 的最终映射目标，在原 ChinaDomain 后注入，保留此前广告拦截、用户自定义与 AI 固定出口优先级；全部 17 个方案有效，none 不注入。不修改上游 ACL4SSR 文件，运行时上游更新不会覆盖程序内置补充。快照版本追加 domestic-v1，更新程序后旧订阅下载用保存节点重建。
+- Cloudflare 中国测试标签不能证明 cloudflareperf.com 全域仅国内；实时连接观察到该主机使用 172.64.155.229／104.18.32.27，未添加其全域或单主机强制直连。byteperf.com 也未加入国内规则，避免影响字节海外测试。
+- 验证：17 个方案回归通过，覆盖用户报告的完整主机名、相关国内域名首个域名规则命中、用户优先、广告顺序及海外服务排除；Go 全量 test/build/vet、Docker build 与 diff --check 通过。使用本机 Mihomo Meta alpha-e4dd968（2026-10-08，go1.26.8，with_gvisor）及 Country／ASN 数据，仅以合成节点执行 CLASH_ACL_TEST_MIHOMO / CLASH_ACL_TEST_MIHOMO_DATA 环境变量下的 go test ./internal/app -run TestGeneratedConfigurationsWithMihomo -count=1，17 个方案配置校验通过。未修改或重载现用客户端配置，未验证真实节点出口；本次仅本地提交，不自动发布或推送新标签。
 
 ## v1.2.2 发布
 
