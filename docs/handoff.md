@@ -6,7 +6,7 @@
 
 - 用户授权补丁版本打标签并推送；v1.2.3 包含字节国内域名补全及旧快照重建，前端硬编码版本同步为 v1.2.3，Release 说明已更新。
 - 发布前验证：Vite build、Go 全量 test/build/vet、docker build -t clash-acl:local .、git diff --check 通过；前端构建产物已确认包含 v1.2.3。规则和内核校验结果见下节。
-- 将 main 与 v1.2.3 原子推送，远程产物随后核实，不移动既有标签。
+- 已将 main 与 v1.2.3 原子推送，标签指向 cdd67ff03b72da631cd2871db0af16f06a69bb92。[Release](https://github.com/b1xcy/clash_ACL/releases/tag/v1.2.3) 正式发布，Release Actions 38909669500 与 main 镜像 Actions 38909669221 均成功。通过 API 确认可执行包、源码 ZIP、SHA256SUMS 三个附件存在，本次未下载复验。GHCR v1.2.3 manifest 可读取，摘要 sha256:38b9b483b91a6e436f23c4a663c27459c31b1d3289bf00020989feefea2cf06b。随后仅提交发布验收记录，不移动既有标签。
 
 ## 字节国内域名补全
 
