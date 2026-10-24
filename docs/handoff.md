@@ -2,6 +2,13 @@
 
 最后更新：2026-10-24。
 
+## YAML／缓存／旧快照的 VLESS SNI 兼容
+
+- 按用户反馈补齐统一生成阶段的兼容处理：VLESS 有 sni 且缺少 servername 时迁移；两者同时存在时以显式 servername 为准，移除 sni。其他协议不变，保留其他参数及原始输入映射，不在导入／去重阶段改写 YAML 节点身份。
+- 快照生成版本追加 vless-sni-v1；旧下载地址下次访问从保存节点重建，覆盖 Proxies 与旧版 YAML 回读两条路径，不刷新来源，保留节点 ID、自建倍率及 AI 绑定。此行为取代下节初次修复时“旧快照不会自动修复”的限制。重新解析旧版直接链接仍会产生新 ID，需重新选择标记／绑定。
+- 新增回归覆盖 YAML 的仅 sni、仅 servername、两者共存，Trojan 保留 sni、输入不变、数字精度及 AI 绑定；旧快照覆盖两种节点存储形式、原 ID／自建分组保留、无需来源缓存及修复后快照复用。
+- 验证：定向测试、go test ./...、go build ./...、go vet ./...、docker build -t clash-acl:local .、git diff --check 均通过。全量测试沿用本机 Mihomo alpha-e4dd968 及 Country／ASN 数据环境变量，旧快照修复后的配置通过内核校验；未测试真实节点。已更新 README 和 agent 约定，仅本地提交，未 push／发布。
+
 ## VLESS TLS／Reality 字段修复
 
 - 已定位本项目直接链接转换错误：parseURITLS 原先仅将 VMess 的 URI sni 转成 servername，VLESS 误输出 sni。按 Mihomo 官方 VLESS 文档修正为两者均输出 servername；其他协议沿用原映射，YAML 输入仍保留原字段。

@@ -17,6 +17,43 @@ import (
 	"time"
 )
 
+func TestOldSnapshotRepairsVLESSSNIWithoutFetching(t *testing.T) {
+	for _, savedProxies := range []bool{false, true} {
+		t.Run(fmt.Sprint(savedProxies), func(t *testing.T) {
+			dir := t.TempDir()
+			store := newSnapshotStore(dir, newSourceManager(dir))
+			proxy := map[string]any{"name": "Legacy", "type": "vless", "server": "192.0.2.1", "port": 443, "uuid": "11111111-1111-4111-8111-111111111111", "tls": true, "sni": "tls.example.invalid"}
+			nodeID, _ := nodeIdentity(proxy)
+			config := defaultConfig()
+			request := GenerationRequest{URLs: []string{"https://unreachable.invalid/sub"}, AI: &AIPolicy{NodeID: nodeID}, Rules: RuleRequest{Preset: "none"}}
+			plan, id, err := snapshotPlan(config, request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			old := ConfigSnapshot{Plan: plan, YAML: "proxies: [{name: Legacy, type: vless, server: 192.0.2.1, port: 443, uuid: 11111111-1111-4111-8111-111111111111, tls: true, sni: tls.example.invalid}]", GeneratedAt: time.Now().UTC(), Preview: GenerationPreview{RulesVersion: bundledRuleVersion + "/dns-v1-domestic-v1", Nodes: []AggregatedNode{{ID: nodeID, Name: "Legacy", Type: "vless", RateGroup: "self"}}}}
+			if savedProxies {
+				old.Proxies = []map[string]any{proxy}
+			}
+			if err := store.write(id, old); err != nil {
+				t.Fatal(err)
+			}
+			repaired, err := store.get(context.Background(), id, plan, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			proxies, err := parseSubscription([]byte(repaired.YAML))
+			if err != nil || proxies[0]["servername"] != "tls.example.invalid" || proxies[0]["sni"] != nil || repaired.Preview.Nodes[0].ID != nodeID || repaired.Preview.Nodes[0].RateGroup != "self" {
+				t.Fatal("snapshot repair lost SNI, identity or self-hosted policy", err)
+			}
+			validateImportedAIWithMihomo(t, []byte(repaired.YAML))
+			again, err := store.get(context.Background(), id, plan, false)
+			if err != nil || !again.GeneratedAt.Equal(repaired.GeneratedAt) || again.YAML != repaired.YAML {
+				t.Fatal("repaired snapshot was not reused", err)
+			}
+		})
+	}
+}
+
 func TestSnapshotDownloadsRefreshCacheAndRestart(t *testing.T) {
 	var calls atomic.Int32
 	var version atomic.Int32

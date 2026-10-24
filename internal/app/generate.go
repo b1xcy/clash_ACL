@@ -170,6 +170,19 @@ func generateConfig(ctx context.Context, manager *SourceManager, config Config, 
 func renderConfig(config Config, request GenerationRequest, nodes []AggregatedNode, preview GenerationPreview, libraries ...fs.FS) ([]byte, GenerationPreview, error) {
 	for index := range nodes {
 		nodes[index].Name = flagNodeName(nodes[index].Name, nodes[index].Origins)
+		if nodes[index].Proxy["type"] == "vless" {
+			if sni, exists := nodes[index].Proxy["sni"]; exists {
+				proxy := make(map[string]any, len(nodes[index].Proxy))
+				for key, value := range nodes[index].Proxy {
+					proxy[key] = value
+				}
+				if _, exists := proxy["servername"]; !exists {
+					proxy["servername"] = sni
+				}
+				delete(proxy, "sni")
+				nodes[index].Proxy = proxy
+			}
+		}
 	}
 	customGroups := config.Groups
 	if request.Groups != nil {

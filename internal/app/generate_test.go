@@ -25,6 +25,49 @@ func generationFixture() Config {
 	return config
 }
 
+func TestYAMLVLESSSNICompatibility(t *testing.T) {
+	for _, test := range []struct {
+		name, kind, fields, want string
+	}{
+		{"legacy", "vless", "sni: legacy.invalid", "legacy.invalid"},
+		{"canonical", "vless", "servername: canonical.invalid", "canonical.invalid"},
+		{"both", "vless", "sni: legacy.invalid, servername: canonical.invalid", "canonical.invalid"},
+		{"trojan", "trojan", "sni: legacy.invalid", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			input := "proxies: [{name: Test, type: " + test.kind + ", server: 192.0.2.1, port: 443, uuid: synthetic-uuid, password: synthetic-password, tls: true, " + test.fields + ", extension: {large: 9007199254740993}}]"
+			proxies, err := parseSubscription([]byte(input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, _ := json.Marshal(proxies)
+			id, _ := nodeIdentity(proxies[0])
+			config := defaultConfig()
+			config.SelfHostedNodes = []SelfHostedNode{{ID: "saved", Proxy: proxies[0]}}
+			config.AI = AIPolicy{NodeID: id}
+			output, preview, err := generateConfig(context.Background(), newSourceManager(t.TempDir()), config, GenerationRequest{Rules: RuleRequest{Preset: "none"}}, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			actual, err := parseSubscription(output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.kind == "vless" {
+				if actual[0]["servername"] != test.want || actual[0]["sni"] != nil {
+					t.Fatal("VLESS SNI was not normalized")
+				}
+			} else if actual[0]["sni"] != "legacy.invalid" || actual[0]["servername"] != nil {
+				t.Fatal("other protocol SNI was changed")
+			}
+			after, _ := json.Marshal(proxies)
+			if string(before) != string(after) || preview.Nodes[0].ID != id || !strings.Contains(string(output), "9007199254740993") {
+				t.Fatal("normalization modified input, identity or extension precision")
+			}
+		})
+	}
+}
+
 func TestPlaintextFilterGenerationAndSnapshotPlan(t *testing.T) {
 	config := generationFixture()
 	plain := SelfHostedNode{ID: "plain", Proxy: map[string]any{"name": "Plain HTTP", "type": "http", "server": "plain.invalid", "port": 8080}}

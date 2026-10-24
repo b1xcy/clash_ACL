@@ -2,7 +2,7 @@
 
 自建的 Mihomo / Clash.Meta 订阅转换工具。合并 YAML 订阅与协议链接，统一整理节点、倍率、代理组和分流规则，生成可持续更新的订阅地址。
 
-VLESS 链接中的 `sni` 参数转换为 Mihomo 的 `servername` 字段（TLS／Reality 均适用）。从旧版升级后，请重新导入链接并生成订阅，再在客户端更新；旧快照不会自动修复此字段。字段修正会改变节点 ID，原有自建标记及 AI 出口绑定需重新选择。YAML 输入保留原字段，请自行使用 `servername`。
+VLESS 链接中的 `sni` 参数转换为 Mihomo 的 `servername` 字段（TLS／Reality 均适用）。生成时也兼容 YAML、来源缓存和保存节点中的 VLESS `sni`：缺少 `servername` 时转换，两者都有时保留 `servername`，移除无效的 `sni`，其他协议不变。旧订阅快照在下次下载时自动修复，无需刷新来源，保留原节点 ID、自建标记和 AI 绑定。重新导入旧版 VLESS 链接会得到修正后的新 ID，需重新选择该节点的自建标记和 AI 出口绑定。
 
 ## 功能
 
