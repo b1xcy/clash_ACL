@@ -2,6 +2,11 @@
 
 最后更新：2026-10-24。
 
+## v1.2.4 发布
+
+- 用户授权打 vtag 并 push；沿用补丁版本 v1.2.4，包含 VLESS 链接字段修复、YAML／来源缓存／保存节点兼容，以及旧快照自动重建。前端版本显示与 Release 说明同步更新。
+- 发布前验证：Vite build、Go 全量 test/build/vet（启用本机 alpha-e4dd968 配置校验）、docker build -t clash-acl:local .、git diff --check 均通过；生成的前端 JS 已确认包含 v1.2.4。
+
 ## YAML／缓存／旧快照的 VLESS SNI 兼容
 
 - 按用户反馈补齐统一生成阶段的兼容处理：VLESS 有 sni 且缺少 servername 时迁移；两者同时存在时以显式 servername 为准，移除 sni。其他协议不变，保留其他参数及原始输入映射，不在导入／去重阶段改写 YAML 节点身份。
