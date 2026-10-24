@@ -1,6 +1,13 @@
 # 开发交接
 
-最后更新：2026-10-16。
+最后更新：2026-10-24。
+
+## VLESS TLS／Reality 字段修复
+
+- 已定位本项目直接链接转换错误：parseURITLS 原先仅将 VMess 的 URI sni 转成 servername，VLESS 误输出 sni。按 Mihomo 官方 VLESS 文档修正为两者均输出 servername；其他协议沿用原映射，YAML 输入仍保留原字段。
+- 回归覆盖 VLESS Reality 的 SNI、flow、指纹和 Reality 参数，普通 TLS／WS 的 servername，以及链接到最终 YAML 的 TLS／Reality 两条路径；断言不输出 sni。素材全部合成，未连接用户节点或改客户端配置。
+- 升级后重新导入链接、重选该节点的自建标记／AI 绑定并生成订阅，再在客户端更新。修正字段导致节点 ID 改变；旧快照不会自动修复。YAML 输入如已有错误字段，需自行更正。服务器 IPv6 路由问题独立处理，不属于本次转换修复。
+- 验证：定向回归、go test ./...、go build ./...、go vet ./...、docker build -t clash-acl:local . 及 git diff --check 通过。全量 Go 测试设置 CLASH_ACL_TEST_MIHOMO 指向本机 Mihomo Meta alpha-e4dd968（2026-10-08，go1.26.8，with_gvisor），CLASH_ACL_TEST_MIHOMO_DATA 指向本机 Country／ASN 数据目录，包含新增 VLESS TLS／Reality 的内核配置校验。仅本地提交，未 push／发布；下一步部署修复版并重新生成订阅。
 
 ## v1.2.3 发布
 

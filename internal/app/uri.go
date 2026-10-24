@@ -236,7 +236,7 @@ func parseURITLS(proxy map[string]any, query url.Values) error {
 	}
 	if sni := takeURI(query, "sni"); sni != "" {
 		key := "sni"
-		if kind == "vmess" {
+		if kind == "vless" || kind == "vmess" {
 			key = "servername"
 		}
 		proxy[key] = sni

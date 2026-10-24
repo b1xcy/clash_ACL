@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func TestNodeURIProtocolFields(t *testing.T) {
@@ -26,8 +29,8 @@ func TestNodeURIProtocolFields(t *testing.T) {
 		{"ss-v2ray", "ss://aes-128-gcm:p@example.invalid:8388?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Btls%3Bhost%3Dcdn.invalid%3Bpath%3D%2Fws", map[string]any{"plugin": "v2ray-plugin", "plugin-opts": map[string]any{"mode": "websocket", "tls": true, "host": "cdn.invalid", "path": "/ws"}}},
 		{"tuic-v5", "tuic://test-uuid:p%40ss@example.invalid:443?congestion_control=bbr&udp_relay_mode=native&alpn=h3&disable_sni=1", map[string]any{"uuid": "test-uuid", "password": "p@ss", "congestion-controller": "bbr", "udp-relay-mode": "native", "disable-sni": true, "alpn": []string{"h3"}}},
 		{"tuic-v4", "tuic://token@example.invalid:443?sni=tls.invalid", map[string]any{"token": "token", "sni": "tls.invalid"}},
-		{"vless-reality", "vless://test-uuid@[2001:db8::1]:443?security=reality&sni=tls.invalid&fp=chrome&pbk=synthetic-key&sid=abcd&flow=xtls-rprx-vision&type=tcp&encryption=none#Fixed+IP", map[string]any{"name": "Fixed+IP", "type": "vless", "server": "2001:db8::1", "tls": true, "flow": "xtls-rprx-vision", "client-fingerprint": "chrome", "reality-opts": map[string]any{"public-key": "synthetic-key", "short-id": "abcd"}}},
-		{"vless-ws", "vless://test-uuid@example.invalid:443?security=tls&type=ws&path=%2Fa%3Fb%3Dc&host=cdn.invalid&allowInsecure=0", map[string]any{"tls": true, "skip-cert-verify": false, "network": "ws", "ws-opts": map[string]any{"path": "/a?b=c", "headers": map[string]any{"Host": "cdn.invalid"}}}},
+		{"vless-reality", "vless://test-uuid@[2001:db8::1]:443?security=reality&sni=tls.invalid&fp=chrome&pbk=synthetic-key&sid=abcd&flow=xtls-rprx-vision&type=tcp&encryption=none#Fixed+IP", map[string]any{"name": "Fixed+IP", "type": "vless", "server": "2001:db8::1", "servername": "tls.invalid", "tls": true, "flow": "xtls-rprx-vision", "client-fingerprint": "chrome", "reality-opts": map[string]any{"public-key": "synthetic-key", "short-id": "abcd"}}},
+		{"vless-ws", "vless://test-uuid@example.invalid:443?security=tls&sni=tls.invalid&type=ws&path=%2Fa%3Fb%3Dc&host=cdn.invalid&allowInsecure=0", map[string]any{"tls": true, "servername": "tls.invalid", "skip-cert-verify": false, "network": "ws", "ws-opts": map[string]any{"path": "/a?b=c", "headers": map[string]any{"Host": "cdn.invalid"}}}},
 		{"vless-h2", "vless://test-uuid@example.invalid:443?security=tls&type=http&path=%2Fh2&host=cdn.invalid", map[string]any{"network": "h2", "h2-opts": map[string]any{"path": "/h2", "host": []string{"cdn.invalid"}}}},
 		{"vless-tcp-http", "vless://test-uuid@example.invalid:443?type=tcp&headerType=http&path=%2Fa%2C%2Fb&host=cdn.invalid", map[string]any{"network": "http", "http-opts": map[string]any{"path": []string{"/a", "/b"}, "headers": map[string]any{"Host": []string{"cdn.invalid"}}}}},
 		{"vmess-json", "vmess://" + vmess, map[string]any{"name": "VMess [倍率:0.5]", "type": "vmess", "uuid": "test-uuid", "alterId": 0, "tls": true, "servername": "tls.invalid", "alpn": []string{"h2", "http/1.1"}, "ws-opts": map[string]any{"path": "/socket?ed=2048", "headers": map[string]any{"Host": "cdn.invalid"}}}},
@@ -47,6 +50,39 @@ func TestNodeURIProtocolFields(t *testing.T) {
 					t.Errorf("field %s: got %#v, want %#v", key, proxy[key], expected)
 				}
 			}
+			if _, exists := proxy["servername"]; exists {
+				if _, exists := proxy["sni"]; exists {
+					t.Error("servername must not also be emitted as sni")
+				}
+			}
+		})
+	}
+}
+
+func TestVLESSGeneratedTLSName(t *testing.T) {
+	for _, security := range []string{"tls", "reality"} {
+		t.Run(security, func(t *testing.T) {
+			link := "vless://11111111-1111-4111-8111-111111111111@192.0.2.1:443?sni=tls.example.invalid&security=" + security
+			if security == "reality" {
+				link += "&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&sid=abcd&flow=xtls-rprx-vision&fp=chrome"
+			}
+			output, _, err := generateConfig(context.Background(), newSourceManager(t.TempDir()), defaultConfig(), GenerationRequest{DirectLinks: link, Rules: RuleRequest{Preset: "none"}}, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var document struct {
+				Proxies []map[string]any `yaml:"proxies"`
+			}
+			if err := yaml.Unmarshal(output, &document); err != nil {
+				t.Fatal(err)
+			}
+			if len(document.Proxies) != 1 || document.Proxies[0]["servername"] != "tls.example.invalid" {
+				t.Fatal("generated VLESS YAML lost the TLS server name")
+			}
+			if _, exists := document.Proxies[0]["sni"]; exists {
+				t.Fatal("generated VLESS YAML contains the unsupported sni field")
+			}
+			validateImportedAIWithMihomo(t, output)
 		})
 	}
 }
