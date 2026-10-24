@@ -91,10 +91,10 @@ func TestURIUnsupportedSettingsDoNotSilentlyChangeNodes(t *testing.T) {
 	for _, uri := range []string{
 		"ssr://private-secret", "vmess://bad-base64!", "vless://private-secret@example.invalid:70000", "trojan://private-secret@example.invalid",
 		"trojan://private-secret@example.invalid:443?allowInsecure=yes", "vless://private-secret@example.invalid:443?security=reality",
-		"vless://private-secret@example.invalid:443?type=xhttp", "vless://private-secret@example.invalid:443?type=ws&private-secret=abc",
+		"vless://private-secret@example.invalid:443?type=xhttp&mode=invalid", "vless://private-secret@example.invalid:443?type=ws&private-secret=abc",
 		"trojan://private-secret@example.invalid:443?sni=a&sni=b", "trojan://private-secret@example.invalid:443?insecure=1&allowInsecure=0",
 		"ss://aes-128-gcm:private-secret@example.invalid:8388?plugin=unknown-plugin", "hy2://private-secret@example.invalid:443,8443",
-		"anytls://private-secret@example.invalid:443?sni=127.0.0.1", "vless://private-secret@example.invalid:443?security=invalid",
+		"anytls://private-secret@example.invalid:443?min-idle-session=invalid", "vless://private-secret@example.invalid:443?security=invalid",
 		"ss://aes-128-gcm:private-secret@example.invalid:8388?plugin=obfs-local%3Bprivate-secret%3Dabc", "trojan://private-secret@example.invalid:443?bad=%XY",
 	} {
 		proxy, err := parseNodeURI(uri)
@@ -149,7 +149,7 @@ func TestVMessJSONRejectsInvalidOrUnmappedFields(t *testing.T) {
 	for _, data := range []string{
 		`null`, `{} {}`, `{"add":"example.invalid","port":443,"id":"private-secret","aid":-1}`,
 		`{"add":"example.invalid","port":443,"id":"private-secret","unknown":"private-secret"}`,
-		`{"add":"example.invalid","port":443,"id":"private-secret","tls":true}`,
+		`{"add":"example.invalid","port":443,"id":"private-secret","tls":[]}`,
 	} {
 		_, err := parseNodeURI("vmess://" + base64.RawStdEncoding.EncodeToString([]byte(data)))
 		if err == nil || strings.Contains(err.Error(), "private-secret") {

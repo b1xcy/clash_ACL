@@ -1,6 +1,15 @@
 # 开发交接
 
-最后更新：2026-10-24。
+最后更新：2026-10-25。
+
+## 七协议与传输层官方字段补齐
+
+- 用户明确要求补齐七种协议及传输层全部官方字段。按 Mihomo e4dd968 的七个出站 Option、BasicOption 及全部关联 TLS／传输／插件／SingMux 结构体提取 URI 字段表，排除 API 专用 proxy:"-"；按公共文档补入 UDP／smux，共 232 个协议顶层字段及其完整嵌套类型。已将生成表与重新提取的官方源码结果逐字节核对一致；未引入 Mihomo 依赖。
+- 原报错原因：Reality 的 support-x25519mlkem768／spx 不在旧白名单，XHTTP 传输未实现。现 MLKEM 布尔值写入 reality-opts；spx／spiderX 按 Mihomo 原生转换惯例兼容接收、不伪造 SpiderX 功能。XHTTP 包含全套填充／session／seq／uplink／headers／reuse-settings／download-settings，转换常用 Xray extra、xmux 与独立下载的 TLS／Reality／XHTTP 设置。
+- 七协议支持官方查询字段与 URL 编码的嵌套 JSON，保留布尔／数组／数值精度；SS 七插件、mKCP／Mekya、HTTPUpgrade、WS ed／eh、TUIC／HY2 QUIC 与 AnyTLS 会话等已接入。VMess Base64 JSON 支持旧分享格式与官方对象字段；VLESS 新式 encryption 原样保留。官方没有 AnyTLS IP SNI 禁令，移除旧 URI 层限制。
+- 未知字段、错误类型和冲突别名仍脱敏报错；保留旧 WS／gRPC／H2／HTTP 空默认字段，避免无关旧链接的节点 ID 改变。名称不覆盖 security；报告中 XHTTP 的 security=none 保留 tls:false。Hysteria2 地址仍使用单端口，跳跃通过官方 ports／hop-interval 字段表达。YAML 扩展字段保留及 VLESS sni 生成修正沿用现状，不修改现用客户端配置。
+- README、API 输入约定与开发约定已更新。所有验证素材均使用合成 UUID、密码、密钥与文档保留地址；未保存用户贴出的真实节点参数，也未做真实连通性／出口 IP 检测。本次只完成本地修复，不沿用已完成的 v1.2.4 发布授权创建新标签。
+- 最终验证：go test ./...、go build ./...、go vet ./...、docker build -t clash-acl:local . 与 git diff --check 通过。全量测试启用 CLASH_ACL_TEST_MIHOMO 指向本机 alpha-e4dd968，CLASH_ACL_TEST_MIHOMO_DATA 指向 Country／ASN 数据目录；232 个协议顶层字段连同其嵌套字段完成 URI→YAML 往返，19 组七协议／传输配置通过内核校验。三条报告链接的合成等价结构通过预览 API 与生成，覆盖 MLKEM、密码中的加号／等号、XHTTP extra 冲突／非法输入／脱敏、VMess 官方 JSON、旧默认字段与空可选参数身份保持。暂存差异已检查不含报告中的真实节点数据。
 
 ## v1.2.4 发布
 

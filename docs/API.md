@@ -44,6 +44,22 @@ curl --get http://127.0.0.1:8080/api/subscriptions \
 
 配置结构包含 `fetch_concurrency`（默认 2）、`sources`、`self_hosted_nodes`、`rename_rules`、`groups`、`rules`、`ai` 与 `base`。自建节点使用 `{ "id": "fixed", "proxy": { ... } }`，`proxy` 保存完整 Mihomo 节点字段；`ai.node_id` 可引用保存的自建 ID，或 URI/订阅预览返回的稳定 node-... ID。生成器执行这些策略，base 中的客户端设置保留，mode 固定为 rule，proxies/proxy-groups/rules 由生成器统一输出。
 
+## 协议链接字段
+
+七种协议（SS、TUIC、VLESS、VMess、Trojan、Hysteria2/hy2、AnyTLS）的 URI 查询参数支持 Mihomo 官方字段名，字段与类型基准为 [Mihomo e4dd968 的出站实现](https://github.com/MetaCubeX/mihomo/tree/e4dd968/adapter/outbound)，与本机验证内核一致。`internal/app/uri_schema.go` 按这七个 Option、BasicOption、传输／TLS／插件／SingMux 的关联结构体提取字段，排除内核 API 专用 `proxy:"-"` 字段；公共 UDP／smux 按官方通用字段补入。升级内核时应同步核对字段表。
+
+- 简单字段直接填值，如 `udp=true`、`idle-session-timeout=30`、`ip-version=ipv4`；布尔值、整数及无符号整数按官方类型解析，保留数值精度。`alpn=h2,http/1.1` 与 JSON 数组均支持。
+- 嵌套对象／数组填 JSON 后 URL 编码，如 `ws-opts=%7B%22path%22%3A%22%2Fsocket%22%2C%22max-early-data%22%3A2048%7D`。同样支持所有协议自身的 `*-opts`、`smux` 和对应嵌套字段；协议不支持的字段不会被当作可用选项导入。
+- 保留原分享链接别名，如 VLESS／VMess 的 `sni` → `servername`、TUIC 的 `congestion_control`、`udp_relay_mode`、`disable_sni`。其他官方连字符字段也接受下划线写法。WS 支持 `ed`／`eh`，`httpupgrade` 转为 WS 的 `v2ray-http-upgrade`；`kcp` 转为 VMess 的 `mkcp`。
+- `type` 在普通分享链接中表示传输类型，`network` 表示 Mihomo 原生传输类型。原有 `type=http` 约定仍转 H2；Mihomo HTTP 伪装请使用 `network=http` 与 `http-opts`。XHTTP 仅 VLESS 支持，mKCP／Mekya 仅 VMess 支持，Trojan 仅 TCP／WS／gRPC。
+- Reality 的 `support-x25519mlkem768` 写入 `reality-opts`；`pbk`／`sid` 仍受支持。`spx`／`spiderX` 兼容接收但不输出，Mihomo 没有 SpiderX 配置与爬虫功能，不伪造对应字段。VLESS 的新式 `encryption` 原样保留，`none` 仍表示不启用协议层加密。
+- XHTTP 覆盖官方 `xhttp-opts` 全字段，包括填充、session、seq、uplink、headers、`reuse-settings` 和 `download-settings`。`extra` 支持常见 Xray camelCase 字段（包括 `xmux`、`downloadSettings`、`tlsSettings`／`realitySettings`／`xhttpSettings`）到官方字段的映射；也可直接用 Mihomo 原生字段。`x_padding_bytes` 与 `extra.xPaddingBytes` 可同时存在且值须一致。
+- SS 支持 obfs、v2ray-plugin、gost-plugin、shadow-tls、restls、jls、kcptun 的官方插件字段；SIP002 插件字符串和 JSON `plugin-opts` 可组合，重复字段须一致。Hysteria2 端口跳跃可用官方 `ports` 与 `hop-interval` 查询参数，URI 地址部分仍使用一个有效端口。
+- VMess Base64 JSON 保留旧 `add`／`id`／`aid`／`net` 等约定，同时接收官方字段与嵌套对象，也支持原生 `server`／`uuid`／`name`。未知字段、非法类型、冲突别名明确报错，不静默覆盖或丢弃；错误不回显认证信息。
+- 节点名称不决定 TLS 开关；例如名字含 TLS 但 `security=none` 的 VLESS 节点仍生成 `tls: false`。接受字段不代表任意字段组合都有效；最终应由匹配版本的 Mihomo 校验，也不等同于真实网络可达。
+
+官方参考：[通用字段](https://wiki.metacubex.one/config/proxies/)、[TLS](https://wiki.metacubex.one/config/proxies/tls/)、[传输层](https://wiki.metacubex.one/config/proxies/transport/)、[SS](https://wiki.metacubex.one/config/proxies/ss/)、[TUIC](https://wiki.metacubex.one/config/proxies/tuic/)、[VLESS](https://wiki.metacubex.one/config/proxies/vless/)、[VMess](https://wiki.metacubex.one/config/proxies/vmess/)、[Trojan](https://wiki.metacubex.one/config/proxies/trojan/)、[Hysteria2](https://wiki.metacubex.one/config/proxies/hysteria2/)、[AnyTLS](https://wiki.metacubex.one/config/proxies/anytls/)。YAML 导入仍原样保留扩展字段，生成阶段保留既有 VLESS `sni` 兼容修正。
+
 ## 生成与快照下载
 
 POST /api/generate 接收 urls、aggregate、direct_links、policy、ai、groups（或 groups_json 文本）与 rules。省略 policy/ai/groups 使用保存的默认设置；rules 包含 preset、custom_rules、policy_map、fallback、skip_unsupported。默认方案为 acl4ssr-online；设置 preset=none 可只使用自定义规则。POST /api/generate?refresh=true 强制刷新来源。

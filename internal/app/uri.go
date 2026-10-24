@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -99,9 +98,16 @@ func parseNodeURI(raw string) (map[string]any, error) {
 			return nil, errors.New("duplicate node query parameter")
 		}
 	}
+	canonical, err := takeMihomoURIFields(scheme, query)
+	if err != nil {
+		return nil, err
+	}
 	name := u.Fragment
 	if name == "" {
-		name = scheme + " 节点"
+		name, _ = canonical["name"].(string)
+		if name == "" {
+			name = scheme + " 节点"
+		}
 	}
 	proxy := map[string]any{"name": name, "type": scheme, "server": u.Hostname(), "port": portNumber}
 	user := u.User.Username()
@@ -130,20 +136,24 @@ func parseNodeURI(raw string) (map[string]any, error) {
 		}
 		proxy["uuid"] = user
 		if scheme == "vmess" {
-			proxy["alterId"] = 0
-			proxy["cipher"] = "auto"
+			if _, exists := canonical["alterId"]; !exists {
+				proxy["alterId"] = 0
+			}
+			if _, exists := canonical["cipher"]; !exists {
+				proxy["cipher"] = "auto"
+			}
 			if cipher := takeURI(query, "encryption"); cipher != "" {
 				proxy["cipher"] = cipher
 			}
 		} else {
 			if encryption := takeURI(query, "encryption"); encryption != "" && encryption != "none" {
-				return nil, errors.New("unsupported VLESS encryption")
+				proxy["encryption"] = encryption
 			}
 			if flow := takeURI(query, "flow"); flow != "" {
 				proxy["flow"] = flow
 			}
 		}
-		if err := parseURITransport(proxy, query); err != nil {
+		if err := parseURITransport(proxy, query, canonical); err != nil {
 			return nil, err
 		}
 	case "trojan":
@@ -151,7 +161,7 @@ func parseNodeURI(raw string) (map[string]any, error) {
 			return nil, errors.New("Trojan requires a password credential")
 		}
 		proxy["password"] = user
-		if err := parseURITransport(proxy, query); err != nil {
+		if err := parseURITransport(proxy, query, canonical); err != nil {
 			return nil, err
 		}
 	case "tuic":
@@ -192,9 +202,33 @@ func parseNodeURI(raw string) (map[string]any, error) {
 		}
 	}
 	if scheme != "ss" {
+		if packet := takeURI(query, "packetEncoding"); packet != "" {
+			if packet == "packet" {
+				packet = "packetaddr"
+			}
+			if packet != "none" {
+				if err := mergeMihomoURIFields(proxy, map[string]any{"packet-encoding": packet}); err != nil {
+					return nil, err
+				}
+			}
+		}
+		if reality, exists := canonical["reality-opts"]; exists {
+			proxy["reality-opts"] = reality
+		}
 		if err := parseURITLS(proxy, query); err != nil {
 			return nil, err
 		}
+	}
+	if err := mergeMihomoURIFields(proxy, canonical); err != nil {
+		return nil, err
+	}
+	if scheme == "vless" || scheme == "vmess" {
+		if _, exists := proxy["tls"]; !exists {
+			proxy["tls"] = false
+		}
+	}
+	if err := validateMihomoURIFields(proxy); err != nil {
+		return nil, err
 	}
 	if len(query) != 0 {
 		return nil, errors.New("unsupported node parameter; use Mihomo YAML to preserve custom settings")
@@ -230,8 +264,10 @@ func parseURITLS(proxy map[string]any, query url.Values) error {
 		return errors.New("unsupported TLS security mode")
 	}
 	if kind == "vless" || kind == "vmess" {
-		proxy["tls"] = security == "tls" || security == "reality"
-	} else if security == "none" || security == "reality" {
+		if security != "" {
+			proxy["tls"] = security == "tls" || security == "reality"
+		}
+	} else if security == "none" || (security == "reality" && kind != "trojan") {
 		return errors.New("unsupported security mode for this protocol")
 	}
 	if sni := takeURI(query, "sni"); sni != "" {
@@ -240,9 +276,6 @@ func parseURITLS(proxy map[string]any, query url.Values) error {
 			key = "servername"
 		}
 		proxy[key] = sni
-		if kind == "anytls" && net.ParseIP(sni) != nil {
-			return errors.New("AnyTLS IP SNI is not supported; use Mihomo YAML")
-		}
 	}
 	if alpn := takeURI(query, "alpn"); alpn != "" {
 		proxy["alpn"] = strings.Split(alpn, ",")
@@ -259,26 +292,49 @@ func parseURITLS(proxy map[string]any, query url.Values) error {
 		}
 	}
 	if security == "reality" {
-		if kind != "vless" && kind != "vmess" {
+		if kind != "vless" && kind != "vmess" && kind != "trojan" {
 			return errors.New("unsupported Reality protocol")
 		}
-		publicKey := takeURI(query, "pbk")
-		if publicKey == "" {
+		opts := map[string]any{}
+		if existing, ok := proxy["reality-opts"].(map[string]any); ok {
+			for key, value := range existing {
+				opts[key] = value
+			}
+		}
+		if publicKey := takeURI(query, "pbk"); publicKey != "" {
+			if err := mergeMihomoURIFields(opts, map[string]any{"public-key": publicKey}); err != nil {
+				return err
+			}
+		}
+		if publicKey, _ := opts["public-key"].(string); publicKey == "" {
 			return errors.New("Reality requires a public key")
 		}
-		opts := map[string]any{"public-key": publicKey}
 		if shortID := takeURI(query, "sid"); shortID != "" {
-			opts["short-id"] = shortID
+			if err := mergeMihomoURIFields(opts, map[string]any{"short-id": shortID}); err != nil {
+				return err
+			}
 		}
+		if err := takeURIBool(query, opts, "support-x25519mlkem768", "support-x25519mlkem768"); err != nil {
+			return err
+		}
+		takeURI(query, "spx")
+		takeURI(query, "spiderX")
 		proxy["reality-opts"] = opts
 	}
 	return nil
 }
 
-func parseURITransport(proxy map[string]any, query url.Values) error {
+func parseURITransport(proxy map[string]any, query url.Values, canonical map[string]any) error {
 	network := takeURI(query, "type")
-	if network == "http" {
+	nativeNetwork := takeURI(query, "network")
+	if network == "http" && nativeNetwork == "" {
 		network = "h2"
+	}
+	if nativeNetwork != "" {
+		if network != "" && network != nativeNetwork {
+			return errors.New("conflicting transport parameters")
+		}
+		network = nativeNetwork
 	}
 	if network == "" || network == "tcp" || network == "raw" {
 		if header := takeURI(query, "headerType"); header != "" && header != "none" {
@@ -287,15 +343,86 @@ func parseURITransport(proxy map[string]any, query url.Values) error {
 			}
 			network = "http"
 		} else {
+			if nativeNetwork != "" {
+				proxy["network"] = nativeNetwork
+			}
 			return nil
 		}
 	}
 	path, host := takeURI(query, "path"), takeURI(query, "host")
+	if proxy["type"] == "trojan" && network != "ws" && network != "httpupgrade" && network != "grpc" {
+		return errors.New("unsupported Trojan transport; use tcp, ws or grpc")
+	}
 	switch network {
-	case "ws":
+	case "xhttp":
+		if proxy["type"] != "vless" {
+			return errors.New("XHTTP transport is only supported for VLESS")
+		}
+		opts, err := parseURIXHTTP(query)
+		if err != nil {
+			return err
+		}
+		if path != "" {
+			if err := mergeMihomoURIFields(opts, map[string]any{"path": path}); err != nil {
+				return err
+			}
+		}
+		if host != "" {
+			if err := mergeMihomoURIFields(opts, map[string]any{"host": host}); err != nil {
+				return err
+			}
+		}
+		proxy["xhttp-opts"] = opts
+	case "mkcp", "kcp", "mekya":
+		if proxy["type"] != "vmess" {
+			return errors.New("mKCP and Mekya transports are only supported for VMess")
+		}
+		if network == "kcp" {
+			network = "mkcp"
+		}
+		if network == "mkcp" {
+			if path != "" || host != "" {
+				return errors.New("mKCP requires mkcp-opts instead of host or path")
+			}
+			opts := map[string]any{}
+			if seed := takeURI(query, "seed"); seed != "" {
+				opts["seed"] = seed
+			}
+			if header := takeURI(query, "headerType"); header != "" {
+				opts["header"] = header
+			}
+			proxy["mkcp-opts"] = opts
+		} else if path != "" || host != "" {
+			return errors.New("Mekya requires mekya-opts instead of host or path")
+		}
+	case "ws", "httpupgrade":
 		opts := map[string]any{"path": path}
+		if native, ok := canonical["ws-opts"].(map[string]any); path == "" && ok {
+			if _, exists := native["path"]; exists {
+				delete(opts, "path")
+			}
+		}
+		if network == "httpupgrade" {
+			network = "ws"
+			opts["v2ray-http-upgrade"] = true
+		}
 		if host != "" {
 			opts["headers"] = map[string]any{"Host": host}
+		}
+		if earlyData := takeURI(query, "ed"); earlyData != "" {
+			value, err := strconv.Atoi(earlyData)
+			if err != nil || value < 0 {
+				return errors.New("invalid WebSocket early data length")
+			}
+			opts["max-early-data"] = value
+		}
+		if header := takeURI(query, "earlyDataHeaderName"); header != "" {
+			opts["early-data-header-name"] = header
+		}
+		if header := takeURI(query, "eh"); header != "" {
+			if err := mergeMihomoURIFields(opts, map[string]any{"early-data-header-name": header}); err != nil {
+				return err
+			}
 		}
 		proxy["ws-opts"] = opts
 	case "grpc":
@@ -305,16 +432,33 @@ func parseURITransport(proxy map[string]any, query url.Values) error {
 		if mode := takeURI(query, "mode"); mode != "" && mode != "gun" {
 			return errors.New("unsupported gRPC mode")
 		}
-		proxy["grpc-opts"] = map[string]any{"grpc-service-name": takeURI(query, "serviceName")}
+		service := takeURI(query, "serviceName")
+		opts := map[string]any{"grpc-service-name": service}
+		if native, ok := canonical["grpc-opts"].(map[string]any); service == "" && ok {
+			if _, exists := native["grpc-service-name"]; exists {
+				delete(opts, "grpc-service-name")
+			}
+		}
+		proxy["grpc-opts"] = opts
 	case "http", "h2":
 		opts := map[string]any{"path": path}
 		if network == "h2" {
+			if native, ok := canonical["h2-opts"].(map[string]any); path == "" && ok {
+				if _, exists := native["path"]; exists {
+					delete(opts, "path")
+				}
+			}
 			if host != "" {
 				opts["host"] = strings.Split(host, ",")
 			}
 			proxy["h2-opts"] = opts
 		} else {
 			opts["path"] = strings.Split(path, ",")
+			if native, ok := canonical["http-opts"].(map[string]any); path == "" && ok {
+				if _, exists := native["path"]; exists {
+					delete(opts, "path")
+				}
+			}
 			if host != "" {
 				opts["headers"] = map[string]any{"Host": strings.Split(host, ",")}
 			}
@@ -359,17 +503,28 @@ func parseSSPlugin(proxy map[string]any, plugin string) error {
 		}
 		opts = converted
 		proxy["plugin"] = "obfs"
-	case "v2ray-plugin":
-		for key := range opts {
-			if key != "mode" && key != "host" && key != "path" && key != "tls" && key != "mux" {
-				return errors.New("unsupported v2ray plugin option")
-			}
-		}
-		proxy["plugin"] = "v2ray-plugin"
+	case "obfs", "v2ray-plugin", "gost-plugin", "shadow-tls", "restls", "jls", "kcptun":
+		proxy["plugin"] = parts[0]
 	default:
 		return errors.New("unsupported Shadowsocks plugin")
 	}
-	proxy["plugin-opts"] = opts
+	kind := map[string]string{"obfs": "simpleObfsOption", "v2ray-plugin": "v2rayObfsOption", "gost-plugin": "gostObfsOption", "shadow-tls": "shadowTLSOption", "restls": "restlsOption", "jls": "jlsOption", "kcptun": "kcpTunOption"}[proxy["plugin"].(string)]
+	options := url.Values{}
+	for key, value := range opts {
+		if flag, ok := value.(bool); ok {
+			options.Set(key, strconv.FormatBool(flag))
+		} else {
+			options.Set(key, value.(string))
+		}
+	}
+	normalized, err := takeMihomoURIOptions(mihomoURIFields[kind], options)
+	if err != nil {
+		return err
+	}
+	if len(options) != 0 {
+		return errors.New("unsupported Shadowsocks plugin option")
+	}
+	proxy["plugin-opts"] = normalized
 	return nil
 }
 
@@ -397,9 +552,35 @@ func parseVMessJSON(body string) (map[string]any, error) {
 		}
 		return ""
 	}
+	canonical := map[string]any{}
 	for key, value := range values {
 		if !strings.Contains("|v|ps|add|port|id|aid|scy|net|type|host|path|tls|sni|alpn|fp|insecure|allowInsecure|", "|"+key+"|") {
-			return nil, errors.New("unsupported VMess JSON field; use Mihomo YAML")
+			kind, exists := mihomoURIFields["VmessOption"][key]
+			if !exists {
+				return nil, errors.New("unsupported VMess JSON field")
+			}
+			normalized, err := normalizeMihomoURIValue(value, kind)
+			if err != nil {
+				return nil, err
+			}
+			canonical[key] = normalized
+			continue
+		}
+		if key == "tls" {
+			if enabled, ok := value.(bool); ok {
+				canonical[key] = enabled
+				continue
+			}
+		}
+		if key == "alpn" {
+			if _, ok := value.([]any); ok {
+				normalized, err := normalizeMihomoURIValue(value, "[]string")
+				if err != nil {
+					return nil, err
+				}
+				canonical[key] = normalized
+				continue
+			}
 		}
 		if _, ok := value.(string); !ok {
 			if _, ok := value.(json.Number); !ok {
@@ -407,8 +588,15 @@ func parseVMessJSON(body string) (map[string]any, error) {
 			}
 		}
 	}
+	server, uuid := get("add"), get("id")
+	if server == "" {
+		server, _ = canonical["server"].(string)
+	}
+	if uuid == "" {
+		uuid, _ = canonical["uuid"].(string)
+	}
 	port, err := strconv.Atoi(get("port"))
-	if err != nil || port < 1 || port > 65535 || get("add") == "" || get("id") == "" {
+	if err != nil || port < 1 || port > 65535 || server == "" || uuid == "" {
 		return nil, errors.New("VMess requires a server, valid port and UUID")
 	}
 	aid := 0
@@ -420,13 +608,22 @@ func parseVMessJSON(body string) (map[string]any, error) {
 	}
 	name := get("ps")
 	if name == "" {
-		name = "vmess 节点"
+		name, _ = canonical["name"].(string)
+		if name == "" {
+			name = "vmess 节点"
+		}
 	}
 	cipher := get("scy")
 	if cipher == "" {
 		cipher = "auto"
 	}
-	proxy := map[string]any{"name": name, "type": "vmess", "server": get("add"), "port": port, "uuid": get("id"), "alterId": aid, "cipher": cipher}
+	proxy := map[string]any{"name": name, "type": "vmess", "server": server, "port": port, "uuid": uuid, "alterId": aid, "cipher": cipher}
+	if _, exists := canonical["alterId"]; exists && get("aid") == "" {
+		delete(proxy, "alterId")
+	}
+	if _, exists := canonical["cipher"]; exists && get("scy") == "" {
+		delete(proxy, "cipher")
+	}
 	query := make(url.Values)
 	for _, key := range []string{"host", "path", "sni", "alpn", "fp", "insecure", "allowInsecure"} {
 		if get(key) != "" {
@@ -434,25 +631,40 @@ func parseVMessJSON(body string) (map[string]any, error) {
 		}
 	}
 	network := get("net")
-	if network == "http" {
+	if native, ok := canonical["network"].(string); ok && network == "" {
+		query.Set("network", native)
+		network = native
+	}
+	if network == "http" && query.Get("network") == "" {
 		network = "h2"
 	}
 	query.Set("type", network)
 	if network == "grpc" {
 		query.Set("serviceName", takeURI(query, "path"))
-		if mode := get("type"); mode != "" && mode != "none" {
+		if mode := get("type"); mode != "" && mode != "none" && mode != "vmess" {
 			query.Set("mode", mode)
 		}
-	} else if network == "tcp" || network == "raw" || network == "" {
-		query.Set("headerType", get("type"))
-	} else if header := get("type"); header != "" && header != "none" {
+	} else if network == "tcp" || network == "raw" || network == "" || network == "kcp" || network == "mkcp" {
+		if header := get("type"); header != "" && header != "vmess" {
+			query.Set("headerType", header)
+		}
+	} else if header := get("type"); header != "" && header != "none" && header != "vmess" {
 		return nil, errors.New("unsupported VMess transport header")
 	}
 	query.Set("security", get("tls"))
-	if err := parseURITransport(proxy, query); err != nil {
+	if err := parseURITransport(proxy, query, canonical); err != nil {
 		return nil, err
 	}
 	if err := parseURITLS(proxy, query); err != nil {
+		return nil, err
+	}
+	if err := mergeMihomoURIFields(proxy, canonical); err != nil {
+		return nil, err
+	}
+	if _, exists := proxy["tls"]; !exists {
+		proxy["tls"] = false
+	}
+	if err := validateMihomoURIFields(proxy); err != nil {
 		return nil, err
 	}
 	if len(query) != 0 {
