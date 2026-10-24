@@ -6,6 +6,7 @@
 
 - 用户授权打 vtag 并 push；沿用补丁版本 v1.2.4，包含 VLESS 链接字段修复、YAML／来源缓存／保存节点兼容，以及旧快照自动重建。前端版本显示与 Release 说明同步更新。
 - 发布前验证：Vite build、Go 全量 test/build/vet（启用本机 alpha-e4dd968 配置校验）、docker build -t clash-acl:local .、git diff --check 均通过；生成的前端 JS 已确认包含 v1.2.4。
+- 已原子推送 main 与 v1.2.4，标签指向 cd5c15a0a4a88263f59b370c34663499e2998757。[Release](https://github.com/b1xcy/clash_ACL/releases/tag/v1.2.4) 正式发布；Release Actions 40103332898 和 main 镜像 Actions 40103332518 均成功。API 确认 Linux amd64 包、完整源码 ZIP、SHA256SUMS 三个附件齐全，本次未下载复验。docker buildx imagetools inspect 确认 GHCR v1.2.4 manifest 可读取，摘要 sha256:2b517d6fee6087c4093e8081fb77dc97f4eb8fa4d155a8615d162db44f66f512。后续仅提交发布记录，不移动标签；VPS 未修改。
 
 ## YAML／缓存／旧快照的 VLESS SNI 兼容
 
