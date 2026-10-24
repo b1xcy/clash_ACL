@@ -2,6 +2,11 @@
 
 最后更新：2026-10-25。
 
+## v1.2.5 发布
+
+- 用户授权打 vtag 并 push；沿用补丁版本 v1.2.5，包含七协议／传输层官方字段补齐、Reality／XHTTP 参数兼容与旧链接身份保持。前端版本显示和 Release 说明同步更新。
+- 发布前 Vite build、Go 全量 test/build/vet（启用本机 alpha-e4dd968 内核校验）、docker build -t clash-acl:local .、git diff --check 均通过；生成的前端资源已确认包含 v1.2.5。
+
 ## 七协议与传输层官方字段补齐
 
 - 用户明确要求补齐七种协议及传输层全部官方字段。按 Mihomo e4dd968 的七个出站 Option、BasicOption 及全部关联 TLS／传输／插件／SingMux 结构体提取 URI 字段表，排除 API 专用 proxy:"-"；按公共文档补入 UDP／smux，共 232 个协议顶层字段及其完整嵌套类型。已将生成表与重新提取的官方源码结果逐字节核对一致；未引入 Mihomo 依赖。
