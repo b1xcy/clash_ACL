@@ -259,7 +259,7 @@ func buildGroups(preset string, custom []map[string]any, nodes []AggregatedNode,
 			continue
 		}
 		group := map[string]any{"name": entry.name, "type": "select", "proxies": members}
-		if !strings.Contains(preset, "noauto") {
+		if entry.rate == "self" && !strings.Contains(preset, "noauto") {
 			group["type"], group["url"], group["interval"], group["tolerance"] = "url-test", "https://www.gstatic.com/generate_204", 300, 50
 		}
 		groups = append(groups, group)

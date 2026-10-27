@@ -129,11 +129,11 @@ func TestGenerateAllPresetsWithResolvedGroups(t *testing.T) {
 				if group["name"] == mainGroup && members[0] != lowGroup {
 					t.Fatal("ordinary default does not prefer low rates")
 				}
-				if group["name"] != highGroup && group["type"] != "select" && containsString(members, "🇯🇵 日本 2x") {
+				if group["type"] != "select" && containsString(members, "🇯🇵 日本 2x") {
 					t.Fatal("high-rate node included in automatic backup")
 				}
-				if group["name"] == highGroup && !strings.Contains(preset.ID, "noauto") && group["type"] != "url-test" {
-					t.Fatal("high-rate group does not use automatic selection")
+				if containsString([]string{lowGroup, standardGroup, highGroup}, group["name"].(string)) && group["type"] != "select" {
+					t.Fatal("rate group does not use manual selection")
 				}
 				if strings.Contains(preset.ID, "noauto") && group["type"] != "select" {
 					t.Fatal("NoAuto preset contains an automatic group")

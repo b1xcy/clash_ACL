@@ -2,6 +2,12 @@
 
 最后更新：2026-10-27。
 
+## v1.2.8 倍率组手动选择
+
+- 低／标准／高倍率三组统一改为 select，自建组继续使用 url-test（NoAuto 保持 select）；保留分组顺序、默认低倍率与 AI 前置逻辑。
+- 更新快照生成版本，旧订阅下次下载自动应用；沿用上一轮发布流程，页面版本与 Release 说明同步为 v1.2.8。
+- 验证通过：Vite build、启用 Mihomo alpha-e4dd968 配置校验的 go test ./...、go build ./...、go vet ./...、docker build -t clash-acl:local .、git diff --check。
+
 ## v1.2.7 自建自动测速
 
 - 自建组改为 url-test，沿用 300 秒间隔、50ms 容差与现有测速 URL；NoAuto 保持 select。更新快照生成版本，旧订阅下次下载自动应用；默认低倍率与 AI 固定出口逻辑保持不变。
