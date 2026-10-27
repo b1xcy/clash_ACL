@@ -137,7 +137,11 @@ func TestSelfHostedImportZeroRateTelegramAndAI(t *testing.T) {
 				members, _ := stringList(group["proxies"])
 				switch group["name"] {
 				case selfGroup:
-					if len(members) != 1 || members[0] != "Private Exit" || group["type"] != "select" {
+					wantType := "url-test"
+					if strings.Contains(preset, "noauto") {
+						wantType = "select"
+					}
+					if len(members) != 1 || members[0] != "Private Exit" || group["type"] != wantType {
 						t.Fatal("self group includes another route")
 					}
 				case telegramGroup, "📲 电报信息":
