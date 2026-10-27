@@ -69,6 +69,7 @@ jobs:
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
           ## clash_ACL ${RELEASE_TAG#v}
 
+          - 高倍率组改为 url-test 自动测速选择，普通流量仍默认优先低倍率，NoAuto 模板保持手动选择；旧订阅下载自动应用。
           - 按 Mihomo e4dd968 补齐七种协议及传输层官方字段，支持官方查询参数与嵌套 JSON，保留类型和数值精度。
           - 补齐 Reality MLKEM、XHTTP 全套 extra／复用／独立下载设置，以及 SS 插件、QUIC、AnyTLS 会话、mKCP／Mekya／HTTPUpgrade。
           - 保留旧链接默认字段与节点身份，未知字段、非法类型和冲突参数脱敏报错；spx 兼容接收，Mihomo 不实现 SpiderX。
@@ -79,7 +80,7 @@ jobs:
           - 补充规则保留广告拦截、自定义规则与 AI 出口优先级，排除明确海外服务；旧订阅下载自动重建。
           - 订阅统一启用 fake-ip 与经代理发送的 DoH；绑定 AI 时默认 DNS 经 AI 出口，直连目标和节点域名单独解析。
           - 补齐 TUN DNS 劫持与严格路由参数，旧订阅下载自动应用；客户端需开启 TUN 并关闭冲突 DNS 覆写，实际泄露效果需客户端验证。
-          - 前端顶部直接显示 v1.2.5 版本号，无需新增 API。
+          - 前端顶部直接显示 v1.2.6 版本号，无需新增 API。
           - YAML 订阅与七种协议链接自动导入、聚合、去重、重命名和国旗。
           - 自建零倍率分组、电报自建出口、多个 AI 出口与 url-test 前置自动优选。
           - AI 前置选择按自动优选、DIRECT、其余节点排序，直连选项紧随自动项，旧订阅更新后可用。

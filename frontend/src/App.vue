@@ -45,7 +45,7 @@ function navigate(id) { activeSection.value = id; if (id === 'rules') advanced.v
     </aside>
 
     <div class="main-shell">
-      <header class="topbar"><span>工作空间 <span class="breadcrumb">/ 订阅转换</span></span><span class="local-badge">v1.2.5 · 本地规则 · 无需登录</span></header>
+      <header class="topbar"><span>工作空间 <span class="breadcrumb">/ 订阅转换</span></span><span class="local-badge">v1.2.6 · 本地规则 · 无需登录</span></header>
       <main class="converter">
         <div class="page-heading"><div><div class="eyebrow">YOUR NODES. YOUR ROUTES.</div><h1>订阅转换</h1><p>导入节点，配置出口，生成你的 Mihomo 订阅。</p></div><div class="mode-switch" aria-label="配置模式"><button id="basicTab" :class="{ active: !advanced }" @click="advanced = false">基础配置</button><button id="advancedTab" :class="{ active: advanced }" @click="advanced = true">进阶配置</button></div></div>
         <div v-if="notice" id="message" class="notice" :class="noticeType" role="status" aria-live="polite">{{ notice }}</div>

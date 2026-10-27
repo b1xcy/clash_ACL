@@ -154,7 +154,7 @@ func (store *SnapshotStore) get(ctx context.Context, id string, plan GenerationP
 	if store.rules != nil {
 		library, version = store.rules.current()
 	}
-	version += "/dns-v1-domestic-v1-vless-sni-v1"
+	version += "/dns-v1-domestic-v1-vless-sni-v1-high-url-test-v1"
 	var previous *ConfigSnapshot
 	if !refresh {
 		if snapshot, err := store.read(id); err == nil {
