@@ -12,7 +12,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func TestAntigravityRulesUseAIExitBeforeBroadGoogleRule(t *testing.T) {
+func TestGoogleAPIsUseAIExitBeforeCustomBroadRule(t *testing.T) {
 	config := generationFixture()
 	request := GenerationRequest{
 		AI:    &AIPolicy{NodeID: "unknown"},
@@ -43,11 +43,22 @@ func TestAntigravityRulesUseAIExitBeforeBroadGoogleRule(t *testing.T) {
 		}
 		return "", -1
 	}
-	broad, broadIndex := firstMatch("googleapis.com")
-	if broad != "DIRECT" || broadIndex < 0 {
-		t.Fatal("broad Google rule was not preserved")
+	googleTarget, _ := firstMatch("googleapis.com")
+	if googleTarget != aiGroup {
+		t.Fatalf("googleapis.com matched %q; want %s", googleTarget, aiGroup)
+	}
+	customBroad := -1
+	for index, rule := range document.Rules {
+		if rule == "DOMAIN-SUFFIX,googleapis.com,DIRECT" {
+			customBroad = index
+			break
+		}
+	}
+	if customBroad < 0 {
+		t.Fatal("custom broad Google rule was not preserved")
 	}
 	for _, host := range []string{
+		"googleapis.com",
 		"antigravity.google",
 		"antigravity.google.com",
 		"antigravity.googleapis.com",
@@ -59,8 +70,8 @@ func TestAntigravityRulesUseAIExitBeforeBroadGoogleRule(t *testing.T) {
 		"antigravity-unleash.goog",
 	} {
 		target, index := firstMatch(host)
-		if target != aiGroup || index < 0 || index > broadIndex {
-			t.Fatalf("%s matched %q at %d; want %s before broad Google rule at %d", host, target, index, aiGroup, broadIndex)
+		if target != aiGroup || index < 0 || index > customBroad {
+			t.Fatalf("%s matched %q at %d; want %s before custom broad rule at %d", host, target, index, aiGroup, customBroad)
 		}
 	}
 	if len(preview.Groups) == 0 {
@@ -68,7 +79,7 @@ func TestAntigravityRulesUseAIExitBeforeBroadGoogleRule(t *testing.T) {
 	}
 }
 
-func TestAIRulesEndpointListsAntigravityEndpoints(t *testing.T) {
+func TestAIRulesEndpointListsGoogleAPIs(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	if err := writeConfig(path, defaultConfig()); err != nil {
 		t.Fatal(err)
@@ -88,6 +99,7 @@ func TestAIRulesEndpointListsAntigravityEndpoints(t *testing.T) {
 	for _, rule := range []string{
 		"DOMAIN-SUFFIX,antigravity.google",
 		"DOMAIN,antigravity.googleapis.com",
+		"DOMAIN-SUFFIX,googleapis.com",
 		"DOMAIN,cloudcode-pa.googleapis.com",
 		"DOMAIN,daily-cloudcode-pa.sandbox.googleapis.com",
 	} {

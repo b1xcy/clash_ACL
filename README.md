@@ -12,7 +12,7 @@ VLESS 链接中的 `sni` 参数转换为 Mihomo 的 `servername` 字段（TLS／
 - **倍率分组**：低／标准／高倍率三组使用 select，普通流量默认优先低倍率；自建组使用 url-test（NoAuto 模板保持手动选择），旧订阅下载自动应用。
 - **HTTP/SOCKS 过滤**：节点总览设置默认策略，每个订阅可选择跟随默认／丢弃／保留；按类型过滤 HTTP/SOCKS4/SOCKS5（含 TLS 变体），不影响 VLESS 等其他协议。预览显示丢弃数量，设置可保存并用于订阅刷新，默认关闭。
 - **自建零倍率**：通过链接导入，逐节点勾选自建（0 倍率），独立 `🏠 自建` 选择组；电报组提供该选项。
-- **AI 固定出口**：多选支持协议的导入／订阅节点，内置 ChatGPT/Codex、Claude、Gemini、Antigravity、Copilot 等规则，无需在额外域名框重复填写。
+- **AI 固定出口**：多选支持协议的导入／订阅节点，内置 ChatGPT/Codex、Claude、Gemini、Antigravity、Google APIs、Copilot 等规则，无需在额外域名框重复填写。
 - **链式代理**：为全部 AI 出口生成 url-test 自动优选和手动前置组；最终出口只在勾选节点中切换。
 - **规则更新**：17 个 ACL4SSR 官网命名方案，默认每 24 小时检查上游，也可手动更新；失败保留有效库。
 - **配置导出**：预览实际组，持久化快照、复制地址、下载 YAML、导入客户端；刷新来源与更新规则分别处理。
@@ -53,7 +53,7 @@ AI 链路为前置节点 → 所选出口 → AI。前置选择默认使用 `⚡
 
 前置测速 URL 留空时使用首个已选 VPS 的 `https://服务器/`，使用标准 HTTPS 端口，不套用代理协议端口；IPv6 自动加方括号。可手动填写真实 HTTP(S) 健康检查地址，首个 VPS 需提供相应网页服务。测速只在客户端进行；首个出口是生成时的固定测速基准，客户端切换最终出口不会自动改变该 URL。缺少出口／入口或存在循环时拒绝生成。TUIC/Hysteria2 需要支持 UDP 转发的前置节点，Claude IP-ASN 依赖客户端 ASN 数据库。服务器不做节点连通性、测速或出口 IP 检测。
 
-Antigravity 的 Cloud Code 主机（`cloudcode-pa.googleapis.com`、`daily-cloudcode-pa.googleapis.com`、`daily-cloudcode-pa.sandbox.googleapis.com`）和客户端依赖域名（`antigravity.googleapis.com`、`antigravity-pa.googleapis.com`、`cloudaicompanion.googleapis.com`、`antigravity.google`／`antigravity.google.com`、`antigravity-unleash.goog`）已内置；绑定 AI 出口后优先于通用 Google 规则，进入 `🤖 AI 固定出口`。这里按具体端点分流，不把整个 `googleapis.com` 交给 AI 出口，避免影响其他 Google API。需要 WARP 时，在 3x-ui 给该 AI 出口节点配置 WARP 出站，并让 `googleapis.com`／上述 Antigravity 域名走该出站；本项目只生成客户端配置，不修改 3x-ui。
+按当前要求，`googleapis.com` 全域及子域都会进入 `🤖 AI 固定出口`，因此 Antigravity、Gemini API、Gmail／Drive 等所有经过 Mihomo 的 Google API 请求都会使用该出口；绑定 AI 出口后优先于通用 Google 规则。Antigravity 客户端域名（`antigravity.google`／`antigravity.google.com`、`antigravity.googleapis.com`、`antigravity-pa.googleapis.com`、`cloudaicompanion.googleapis.com`、`antigravity-unleash.goog`）也已内置。需要 WARP 时，在 3x-ui 给该 AI 出口节点配置 WARP 出站，并让 `googleapis.com` 走该出站；本项目只生成客户端配置，不修改 3x-ui。
 
 AI 补充参考 [Net.Coffee GPT](https://ip.net.coffee/gpt/site.html) 与 [Claude](https://ip.net.coffee/claude/site.html)，补域名、CDN、认证、语音、遥测及 Claude IP/ASN，随镜像发布；ACL 上游更新不会覆盖。可选 geosite/NTP 未默认启用。none 方案保留已启用的 AI／电报服务分流。
 
