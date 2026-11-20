@@ -56,7 +56,7 @@
 - 用户最新要求允许多选 AI 最终出口：ai.node_ids 按选择顺序指定候选，旧 node_id 兼容。AI 组只含明确指定节点，不加入普通组或 DIRECT；任一选中节点缺失拒绝生成。
 - 用户最新要求前置默认 url-test：ai.chain=true 为全部指定出口写入 dialer-proxy: 🔗 AI 前置选择，组首选 ⚡ AI 前置自动（url-test，300s/50ms），其余为手动候选。测速URL默认首个VPS的 https://服务器/，ai.test_url 可手动填写实际HTTP(S)服务，不借用代理端口；仅客户端测速。所有指定出口从前置排除，DIRECT不参与自动测速、仅作为前置手动直连选项；前置选择顺序固定为AI前置自动、DIRECT、其余节点，AI前置自动延用原全部候选（含高倍率），普通倍率策略不变。前置可为机场节点，但仅作为连接 VPS 的入口，不替代最终出口；保留完整 AI/ACL 分流，校验未知引用、空组与依赖循环，且不改用户正在使用的客户端配置。
 - AI 域名规则优先于可能覆盖相同域名的微软、Google、国外媒体等通用规则。
-- 默认 AI 补充用户指定 Net.Coffee GPT/Claude 页面中的域名、CDN、认证、语音、遥测和 Claude IP/ASN 文本规则；未绑定时跟随方案，绑定时使用固定出口。可选 geosite/NTP 扩展不默认启用。补充规则随镜像发布，不受 ACL4SSR 更新覆盖，IP-ASN 依赖客户端 ASN 数据库。
+- 默认 AI 补充用户指定 Net.Coffee GPT/Claude 页面中的域名、CDN、认证、语音、遥测和 Claude IP/ASN 文本规则；并内置 Antigravity 客户端与 Cloud Code 端点（`antigravity.google`／`.com`、`antigravity*.googleapis.com`、`cloudcode-pa.googleapis.com`、`daily-cloudcode-pa.sandbox.googleapis.com`、`cloudaicompanion.googleapis.com`、`antigravity-unleash.goog`），按具体端点而非整个 `googleapis.com` 分流。未绑定时跟随方案，绑定时使用固定出口。可选 geosite/NTP 扩展不默认启用。补充规则随镜像发布，不受 ACL4SSR 更新覆盖，IP-ASN 依赖客户端 ASN 数据库。
 - 在 Mihomo 的 rule 模式且请求已进入 Mihomo 的前提下提供以上分流约束；全局模式或绕过代理的流量不属于配置生成器能够保证的范围。
 
 ### 配置与其他服务策略

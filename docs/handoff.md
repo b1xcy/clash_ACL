@@ -1,6 +1,15 @@
 # 开发交接
 
-最后更新：2026-10-27。
+最后更新：2026-11-20。
+
+## Antigravity 分流补全
+
+- 参考 [Antigravity-Manager #3057](https://github.com/lbjlaq/Antigravity-Manager/issues/3057)，补齐 Antigravity 到 `🤖 AI 固定出口` 的域名规则：`antigravity.google`／`antigravity.google.com`、`antigravity.googleapis.com`、`antigravity-pa.googleapis.com`、`cloudaicompanion.googleapis.com`、`cloudcode-pa.googleapis.com`、`daily-cloudcode-pa.googleapis.com`、`daily-cloudcode-pa.sandbox.googleapis.com`、`antigravity-unleash.goog`。只按具体端点分流，不把整个 `googleapis.com` 送进 AI 出口，避免影响其他 Google API；不添加进程名或进程路径规则。
+- 规则位于随镜像发布的 `rules/AI/NetCoffee.list`，生成时会置于用户自定义规则之前；即使另有 `DOMAIN-SUFFIX,googleapis.com,DIRECT` 也不会截断 Antigravity。`/api/rules/ai` 的完整清单同步可见。
+- 快照生成版本追加 `ai-antigravity-v1`；已有下载地址下次访问会用快照内保存的节点重建，不刷新机场来源，保留节点 ID、自建标记和 AI 绑定。
+- 3x-ui 的 WARP 出站仍由用户在服务端配置：选中 AI 出口节点后，Clash 将 Antigravity 请求送到该节点，3x-ui 再按 `googleapis.com`／上述域名把出站切到 WARP。本项目不修改 3x-ui、VPS 或用户现用客户端配置，也不做真实出口 IP 验收。
+- 新增回归 `TestAntigravityRulesUseAIExitBeforeBroadGoogleRule` 与 `TestAIRulesEndpointListsAntigravityEndpoints`；覆盖 9 个 Antigravity 主机、宽泛 Google 规则不抢占、AI 规则接口清单。
+- 验证：Vite build、启用本机 Mihomo Meta alpha-69c1631 配置校验的 `go test ./...`、`go vet ./...`、`go build ./...`、`docker build -t clash-acl:local .`、容器 `/healthz` 与 `/api/rules/ai` 冒烟及 `git diff --check`。
 
 ## v1.2.8 倍率组手动选择
 

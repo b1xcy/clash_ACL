@@ -73,7 +73,7 @@ function navigate(id) { activeSection.value = id; if (id === 'rules') advanced.v
               <p v-if="aiMissing" class="error hint">所选出口已不可用；重新导入对应节点后才能生成。</p>
               <ChainPreview :name="chosenAI?.name || (aiMissing ? '所选节点不可用' : '')" :chain="form.aiChain" :count="form.aiNodes.length" />
               <p v-if="form.aiChain" class="hint">最终出口仅限勾选节点，可在客户端切换。TUIC/Hysteria2 需要支持 UDP 转发的前置节点。</p>
-              <div class="service-chips"><span>ChatGPT / Codex</span><span>Claude</span><span>Gemini</span><span>Copilot</span><span>Cursor</span><span>更多 AI 服务</span></div>
+              <div class="service-chips"><span>ChatGPT / Codex</span><span>Claude</span><span>Gemini</span><span>Antigravity</span><span>Copilot</span><span>Cursor</span><span>更多 AI 服务</span></div>
               <label for="aiDomains">额外 AI 服务域名 <span class="optional">可选</span></label><textarea id="aiDomains" v-model="form.aiDomains" rows="6" spellcheck="false" :placeholder="aiPlaceholder"></textarea><p class="hint">已有内置规则无需填写；留空即可。这里只添加你的中转站或其他额外服务，每行一个域名。</p><details class="builtin-rules"><summary>查看全部内置 AI 规则 <span>{{ builtinAIRules.length }} 条</span></summary><pre>{{ builtinAIRules.join('\n') }}</pre></details>
               <div class="info-strip">🏠 电报使用自建出口：标记节点后，在客户端「电报消息 / 电报信息」组选择「自建」，即可使用 0 倍率路线。</div>
             </section>
