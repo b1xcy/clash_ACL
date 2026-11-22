@@ -40,6 +40,7 @@ DOMAIN-SUFFIX,intercom.io
 DOMAIN-SUFFIX,intercomcdn.com
 DOMAIN,cdn.usefathom.com
 # Antigravity client and Cloud Code API endpoints
+DOMAIN-KEYWORD,antigravity
 DOMAIN-SUFFIX,antigravity.google
 DOMAIN-SUFFIX,antigravity.google.com
 DOMAIN,antigravity.googleapis.com
