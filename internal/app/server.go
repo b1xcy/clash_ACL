@@ -79,8 +79,10 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 			name, _ := node.Proxy["name"].(string)
 			nodes = append(nodes, map[string]string{"id": node.ID, "name": name})
 		}
+		ai := config.AI
+		ai.NodeID, ai.NodeIDs, ai.TestURL = "", nil, ""
 		writeJSON(w, http.StatusOK, map[string]any{
-			"options": ConversionOptions{SourceDropPlaintext: config.SourceDropPlaintext, DropPlaintext: config.DropPlaintext, RenameRules: config.RenameRules, RatePattern: config.RatePattern, AI: config.AI, GroupsJSON: string(groups)}, "self_hosted_nodes": nodes,
+			"options": ConversionOptions{SourceDropPlaintext: config.SourceDropPlaintext, DropPlaintext: config.DropPlaintext, RenameRules: config.RenameRules, RatePattern: config.RatePattern, AI: ai, GroupsJSON: string(groups)}, "self_hosted_nodes": nodes,
 		})
 	})
 	mux.HandleFunc("PUT /api/options", func(w http.ResponseWriter, r *http.Request) {
@@ -91,6 +93,8 @@ func newHandler(configPath string, updates ...*RuleUpdateManager) http.Handler {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
+		// Never persist user-specific exit node selections or test URLs on the server.
+		options.AI.NodeID, options.AI.NodeIDs, options.AI.TestURL = "", nil, ""
 		configMu.Lock()
 		defer configMu.Unlock()
 		config, err := readConfig(configPath)

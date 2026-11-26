@@ -11,8 +11,8 @@
 | `PUT /api/config` | 用 JSON 请求体整体替换并保存配置 |
 | `GET /api/sources` | 返回可编辑的来源设置，包含订阅 URL |
 | `PUT /api/sources` | 用 JSON 来源数组替换来源列表，保留其他配置 |
-| `GET /api/options` | 返回重命名、AI、代理组设置及自建节点名称 |
-| `PUT /api/options` | 保存转换设置，保留来源、自建节点和基础配置 |
+| `GET /api/options` | 返回重命名、AI（不含 `node_id`/`node_ids`/`test_url`）、代理组设置及自建节点名称 |
+| `PUT /api/options` | 保存转换设置（不保存 `ai.node_id`/`ai.node_ids`/`ai.test_url`），保留来源、自建节点和基础配置 |
 | `GET /api/self-hosted` | 返回用于编辑的节点 JSON 文本，保留数值精度 |
 | `PUT /api/self-hosted` | 替换自建节点数组，保留其他设置，拒绝删除已绑定 AI 的节点 |
 | `POST /api/sources/refresh` | 启动启用来源的后台刷新，返回 HTTP 202 |

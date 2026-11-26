@@ -133,9 +133,6 @@ func validateConfig(config Config) error {
 			return errors.New("AI node_ids must reference saved nodes or valid imported node IDs")
 		}
 	}
-	if config.AI.Chain && len(config.AI.selectedIDs()) == 0 {
-		return errors.New("AI chain requires a selected exit node")
-	}
 	if config.AI.TestURL != "" {
 		parsed, err := url.Parse(config.AI.TestURL)
 		if err != nil || parsed.Hostname() == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {

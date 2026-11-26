@@ -45,7 +45,7 @@ function navigate(id) { activeSection.value = id; if (id === 'rules') advanced.v
     </aside>
 
     <div class="main-shell">
-      <header class="topbar"><span>工作空间 <span class="breadcrumb">/ 订阅转换</span></span><span class="local-badge">v1.2.9 · 本地规则 · 无需登录</span></header>
+      <header class="topbar"><span>工作空间 <span class="breadcrumb">/ 订阅转换</span></span><span class="local-badge">v1.2.92 · 本地规则 · 无需登录</span></header>
       <main class="converter">
         <div class="page-heading"><div><div class="eyebrow">YOUR NODES. YOUR ROUTES.</div><h1>订阅转换</h1><p>导入节点，配置出口，生成你的 Mihomo 订阅。</p></div><div class="mode-switch" aria-label="配置模式"><button id="basicTab" :class="{ active: !advanced }" @click="advanced = false">基础配置</button><button id="advancedTab" :class="{ active: advanced }" @click="advanced = true">进阶配置</button></div></div>
         <div v-if="notice" id="message" class="notice" :class="noticeType" role="status" aria-live="polite">{{ notice }}</div>
@@ -86,7 +86,7 @@ function navigate(id) { activeSection.value = id; if (id === 'rules') advanced.v
                 <details class="advanced-editor"><summary>自定义代理组</summary><label for="groupSettings">代理组 JSON</label><textarea id="groupSettings" v-model="form.groupsJSON" class="code" spellcheck="false"></textarea><p class="hint">可使用 proxies、node_ids、filter、source_ids、rate_groups（self / low / standard / high）。同名模板组以此为准；AI 与倍率组受保护。</p></details>
                 <details class="advanced-editor"><summary>自定义分流规则</summary><label for="customRules">额外规则</label><textarea id="customRules" v-model="form.customRules" class="code" spellcheck="false" placeholder="DOMAIN-SUFFIX,example.com,DIRECT"></textarea><label for="policyMap">模板策略映射 <span class="optional">可选</span></label><textarea id="policyMap" v-model="form.policyMap" class="code" spellcheck="false"></textarea><label for="ruleFallback">最终兜底</label><input id="ruleFallback" v-model="form.fallback" placeholder="留空使用自定义 MATCH、模板 FINAL 或普通选择"><label class="check hint"><input id="skipUnsupportedRules" v-model="form.skipUnsupported" type="checkbox">跳过外部 URL-REGEX / USER-AGENT</label><button id="previewRules" class="secondary" :disabled="!ready || rulePreviewing" @click="previewRules">{{ rulePreviewing ? '正在预览…' : '预览本地规则' }}</button><p id="ruleSummary" class="hint">{{ ruleSummary || '顺序：自定义规则 → 外部规则 → 最终兜底。AI 固定规则优先。' }}</p><textarea v-if="rulesText" id="ruleResults" class="code" :value="rulesText" readonly aria-label="最终规则顺序"></textarea></details>
               </div>
-              <div class="save-row"><button id="saveOptions" class="secondary" :disabled="!ready || saving" @click="saveOptions">{{ saving ? '正在保存…' : '保存转换设置' }}</button><small>保存重命名、倍率、AI 出口和代理组；其他输入随生成地址保存。</small></div>
+              <div class="save-row"><button id="saveOptions" class="secondary" :disabled="!ready || saving" @click="saveOptions">{{ saving ? '正在保存…' : '保存转换设置' }}</button><small>保存重命名、倍率、代理组及 AI 链式/域名到服务器；AI 出口与测速 URL 仅保存在当前浏览器本地。</small></div>
             </section>
           </div>
 

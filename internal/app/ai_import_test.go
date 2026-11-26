@@ -177,16 +177,17 @@ func TestImportedAIOptionsPersistAndMissingExitDoesNotFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler := newHandler(path)
-	body := `{"ai":{"node_id":"` + id + `","chain":true,"domains":["relay.example.invalid"]},"groups_json":"[]"}`
+	body := `{"ai":{"node_ids":["` + id + `"],"test_url":"https://health.example.invalid/","chain":true,"domains":["relay.example.invalid"]},"groups_json":"[]"}`
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/options", strings.NewReader(body)))
 	if response.Code != 200 {
-		t.Fatal("imported AI selection could not be saved", response.Body.String())
+		t.Fatal("AI options could not be saved", response.Body.String())
 	}
 	config, err := readConfig(path)
-	if err != nil || config.AI.NodeID != id || !config.AI.Chain {
-		t.Fatal("imported AI binding not persisted")
+	if err != nil || !config.AI.Chain || len(config.AI.Domains) != 1 || config.AI.NodeID != "" || len(config.AI.NodeIDs) != 0 || config.AI.TestURL != "" {
+		t.Fatal("AI options persistence broke privacy or lost chain/domains")
 	}
+	config.AI.NodeIDs = []string{id}
 	if _, _, err := generateConfig(context.Background(), newSourceManager(dir), config, GenerationRequest{DirectLinks: importedEntry, Rules: RuleRequest{Preset: "none"}}, false); err == nil {
 		t.Fatal("missing exit silently fell back")
 	}

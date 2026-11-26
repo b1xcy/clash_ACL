@@ -1,6 +1,31 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api, post } from './api'
 
+const AI_STORAGE_KEY = 'clash_acl.ai_options'
+
+function readLocalAIOptions() {
+  try {
+    const raw = localStorage.getItem(AI_STORAGE_KEY)
+    if (!raw) return { node_ids: [], test_url: '' }
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { node_ids: [], test_url: '' }
+    const nodeIDs = Array.isArray(parsed.node_ids) ? parsed.node_ids.filter(id => typeof id === 'string' && id.trim() !== '') : []
+    const testURL = typeof parsed.test_url === 'string' ? parsed.test_url : ''
+    return { node_ids: nodeIDs, test_url: testURL }
+  } catch {
+    return { node_ids: [], test_url: '' }
+  }
+}
+
+function writeLocalAIOptions(nodeIDs, testURL) {
+  try {
+    localStorage.setItem(AI_STORAGE_KEY, JSON.stringify({
+      node_ids: Array.isArray(nodeIDs) ? [...nodeIDs] : [],
+      test_url: typeof testURL === 'string' ? testURL.trim() : '',
+    }))
+  } catch {}
+}
+
 export function useConverter() {
   const form = reactive({ subscriptions: '', directLinks: '', aggregate: true, dropPlaintext: false, sourceFilters: {}, excludedURLs: [], preset: 'acl4ssr-online', ratePattern: '', renameRules: [], aiNodes: [], aiChain: false, aiTestURL: '', aiDomains: '', groupsJSON: '[]', customRules: '', policyMap: '{}', fallback: '', skipUnsupported: true, refreshGeneration: false })
   const ready = ref(false), notice = ref(''), noticeType = ref(''), advanced = ref(false)
@@ -161,8 +186,9 @@ export function useConverter() {
   async function saveOptions() {
     saving.value = true
     try {
-      await post('/api/options', { source_drop_plaintext: { ...form.sourceFilters }, drop_plaintext: form.dropPlaintext, rename_rules: form.renameRules, rate_pattern: form.ratePattern.trim(), ai: { node_id: '', node_ids: [...form.aiNodes], test_url: form.aiTestURL.trim(), chain: form.aiChain, domains: lines(form.aiDomains) }, groups_json: form.groupsJSON }, 'PUT')
-      message('转换设置已保存。', 'success')
+      writeLocalAIOptions(form.aiNodes, form.aiTestURL)
+      await post('/api/options', { source_drop_plaintext: { ...form.sourceFilters }, drop_plaintext: form.dropPlaintext, rename_rules: form.renameRules, rate_pattern: form.ratePattern.trim(), ai: { chain: form.aiChain, domains: lines(form.aiDomains) }, groups_json: form.groupsJSON }, 'PUT')
+      message('转换设置已保存（AI 出口与测速 URL 仅保存在本地浏览器）。', 'success')
     } catch (error) { message(error.message, 'error') } finally { saving.value = false }
   }
   async function previewRules() {
@@ -218,10 +244,12 @@ export function useConverter() {
     uriTimer = setTimeout(() => parseLinks().catch(() => {}), 350)
   }, { flush: 'sync' })
   watch(() => [form.dropPlaintext, JSON.stringify(form.sourceFilters), form.ratePattern, JSON.stringify(form.renameRules)], scheduleAggregate)
+  watch(() => [form.aiNodes, form.aiTestURL], () => { if (ready.value) writeLocalAIOptions(form.aiNodes, form.aiTestURL) }, { deep: true })
   onMounted(async () => {
     try {
       const [options, available] = await Promise.all([api('/api/options'), api('/api/rules/presets'), loadAIRules(), loadRuleStatus()])
-      Object.assign(form, { sourceFilters: options.options.source_drop_plaintext || {}, dropPlaintext: !!options.options.drop_plaintext, renameRules: options.options.rename_rules || [], ratePattern: options.options.rate_pattern || '', aiNodes: options.options.ai.node_ids ?? (options.options.ai.node_id ? [options.options.ai.node_id] : []), aiTestURL: options.options.ai.test_url || '', aiChain: !!options.options.ai.chain, aiDomains: (options.options.ai.domains || []).join('\n'), groupsJSON: options.options.groups_json || '[]' })
+      const localAI = readLocalAIOptions()
+      Object.assign(form, { sourceFilters: options.options.source_drop_plaintext || {}, dropPlaintext: !!options.options.drop_plaintext, renameRules: options.options.rename_rules || [], ratePattern: options.options.rate_pattern || '', aiNodes: localAI.node_ids, aiTestURL: localAI.test_url, aiChain: !!options.options.ai.chain, aiDomains: (options.options.ai.domains || []).join('\n'), groupsJSON: options.options.groups_json || '[]' })
       savedNodes.value = options.self_hosted_nodes || []
       presets.value = [...available.presets, { id: 'none', name: '自定义规则（保留已启用服务分流）' }]
       ready.value = true
